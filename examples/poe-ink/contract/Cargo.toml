@@ -1,5 +1,5 @@
 [package]
-name = "contract"
+name = "poe-ink-contract"
 version = "0.1.0"
 authors = ["CESS Team <hello@cess.cloud>"]
 edition = "2021"

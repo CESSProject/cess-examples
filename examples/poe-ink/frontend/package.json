@@ -1,0 +1,86 @@
+{
+  "name": "poe-ink-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "author": "CESS <hello@cess.cloud>",
+  "license": "Unlicense",
+  "homepage": "https://github.com/hkwtf/cess-course",
+  "bugs": {
+    "url": "https://github.com/hkwtf/cess-course/issues"
+  },
+  "keywords": [
+    "substrate",
+    "substrate-ui",
+    "polkadot-js"
+  ],
+  "scripts": {
+    "start": "react-app-rewired start",
+    "build": "react-app-rewired build",
+    "test": "CI=true react-app-rewired test",
+    "eject": "react-scripts eject",
+    "eslint:check": "eslint --ext .jsx,.js src/",
+    "eslint:write": "eslint --fix --ext .jsx,.js src/",
+    "prettier:check": "prettier -c src/*",
+    "prettier:write": "prettier -w src/*",
+    "deploy": "gh-pages -d build -m '[ci skip] Updates'"
+  },
+  "dependencies": {
+    "@polkadot/api": "^10.9.1",
+    "@polkadot/extension-dapp": "^0.46.5",
+    "@polkadot/keyring": "^12.4.2",
+    "@polkadot/networks": "^12.4.2",
+    "@polkadot/types": "^10.9.1",
+    "@polkadot/ui-keyring": "^3.6.2",
+    "@polkadot/ui-settings": "^3.6.2",
+    "@polkadot/util": "^12.4.2",
+    "@polkadot/util-crypto": "^12.4.2",
+    "node-polyfill-webpack-plugin": "^2.0.1",
+    "prop-types": "^15.8.1",
+    "react": "^18.2.0",
+    "react-copy-to-clipboard": "^5.1.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "^5.0.0",
+    "semantic-ui-css": "^2.5.0",
+    "semantic-ui-react": "^2.1.4",
+    "stream-browserify": "^3.0.0",
+    "useink": "^1.13.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.47.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-config-react-app": "^7.0.1",
+    "gh-pages": "^6.0.0",
+    "prettier": "3.0.2",
+    "react-app-rewired": "^2.2.1",
+    "semistandard": "^17.0.0"
+  },
+  "resolutions": {
+    "eslint-plugin-jsx-a11y": "6.5.1"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "eslint:recommended",
+      "prettier"
+    ]
+  },
+  "engines": {
+    "node": ">=18",
+    "npm": ">=9"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not ie <= 99",
+      "not android <= 4.4.4",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "packageManager": "yarn@3.6.3"
+}

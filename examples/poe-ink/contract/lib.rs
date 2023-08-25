@@ -2,8 +2,8 @@
 
 #[ink::contract]
 mod contract {
-	use ink::storage::Mapping;
 	use ink::prelude::{vec, vec::Vec};
+	use ink::storage::Mapping;
 
 	/// Defines the storage of your contract.
 	/// Add new fields to the below struct in order
@@ -13,7 +13,7 @@ mod contract {
 		/// Mapping from AccountId to hash of files the user owned
 		users: Mapping<AccountId, Vec<Hash>>,
 		/// Mapping from the file hash to its owner
-		files: Mapping<Hash, AccountId>
+		files: Mapping<Hash, AccountId>,
 	}
 
 	#[ink(event)]
@@ -21,7 +21,7 @@ mod contract {
 		#[ink(topic)]
 		owner: AccountId,
 		#[ink(topic)]
-		file: Hash
+		file: Hash,
 	}
 
 	#[ink(event)]
@@ -29,7 +29,7 @@ mod contract {
 		#[ink(topic)]
 		owner: AccountId,
 		#[ink(topic)]
-		file: Hash
+		file: Hash,
 	}
 
 	#[derive(Debug, PartialEq, Eq, scale::Encode, scale::Decode)]
@@ -63,7 +63,7 @@ mod contract {
 		pub fn has_claimed(&self, file: Hash) -> bool {
 			match self.files.get(file) {
 				Some(_) => true,
-				None => false
+				None => false,
 			}
 		}
 
@@ -83,7 +83,7 @@ mod contract {
 					// A user entry has already been built
 					files.push(file);
 					self.users.insert(from, &files);
-				},
+				}
 				None => {
 					// A user entry hasn't been built, so building one here
 					self.users.insert(from, &vec![file]);
@@ -139,12 +139,10 @@ mod contract {
 		/// Imports all the definitions from the outer scope so we can use them here.
 		use super::*;
 		use ink::env::{
-			DefaultEnvironment,
-			hash_bytes,
 			hash::{Blake2x256, HashOutput},
-			test,
+			hash_bytes, test, DefaultEnvironment,
 		};
-		use scale::{Decode};
+		use scale::Decode;
 
 		type Event = <Contract as ink::reflect::ContractEventBase>::Type;
 
@@ -270,19 +268,13 @@ mod contract {
 			// Test initialized conditions
 			test::set_caller::<DefaultEnvironment>(accts.alice);
 
-			assert_eq!(
-				contract.forfeit(hash.clone().into()),
-				Err(Error::NotOwner)
-			);
+			assert_eq!(contract.forfeit(hash.clone().into()), Err(Error::NotOwner));
 
 			let _ = contract.claim(hash.clone().into());
 
 			// Test that Bob cannot forfeit the ownership
 			test::set_caller::<DefaultEnvironment>(accts.bob);
-			assert_eq!(
-				contract.forfeit(hash.clone().into()),
-				Err(Error::NotOwner)
-			);
+			assert_eq!(contract.forfeit(hash.clone().into()), Err(Error::NotOwner));
 
 			// Return back to Alice
 			test::set_caller::<DefaultEnvironment>(accts.alice);
