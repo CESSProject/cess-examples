@@ -1,5 +1,5 @@
 import { React, useState } from "react";
-import { Grid, Input, Dropdown, Header } from "semantic-ui-react";
+import { Grid, Input, Dropdown, Header, Label, Icon, Button } from "semantic-ui-react";
 import {
   useWallet,
   useAllWallets,
@@ -11,22 +11,30 @@ import {
 } from "useink";
 import { pickDecoded, shouldDisable } from "useink/utils";
 import { blake2AsHex } from "@polkadot/util-crypto";
-// import { useSubstrate } from './substrate-lib'
 
+import config from "./config";
+
+// NOTE: In `examples/poe-ink/contract` directory, compile your contract with
+//   `cargo contract build`.
 import metadata from "../../contract/target/ink/poe_ink_contract.json";
 
-const CHAIN_RPC = "ws://localhost:9944";
-const CONTRACT_ADDR = "cXggWW96TwTUVfhbRSFGZvdLaYB4higPXSE8EHCzPMQgD95zf";
+// NOTE: Update your deployed contract address below.
+const CONTRACT_ADDR = "cXfiwmGmvcEftA2XcK5HLUP97LWA3dBNN7edCmqUNJKLsJDrs";
+
+// Simple sort function
+function sortDdOptions(a, b) {
+  const aText = a.text.toUpperCase();
+  const bText = b.text.toUpperCase();
+  return aText > bText ? 1 : bText > aText ? -1 : 0;
+}
 
 function ProofOfExistenceInk(props) {
   const { account } = useWallet();
-  // console.log('my curr acct:', account)
 
   const balance = useBalance(account);
 
   // Getting the contract API
   const poeContract = useContract(CONTRACT_ADDR, metadata, "custom");
-  const claimTx = useTx(poeContract, "claim");
   const ownedFiles = useCallSubscription(poeContract, "ownedFiles");
   const ownedFilesRes = pickDecoded(ownedFiles.result);
 
@@ -34,7 +42,11 @@ function ProofOfExistenceInk(props) {
 
   const computeFileHash = (file) => {
     const fileReader = new FileReader();
-    fileReader.onloadend = (e) => setFileHash(blake2AsHex(fileReader.result));
+    fileReader.onloadend = (e) => {
+      // We extract only the first 64kB  of the file content
+      const typedArr = new Uint8Array(fileReader.result.slice(0, 65536));
+      setFileHash(blake2AsHex(typedArr));
+    };
     fileReader.readAsArrayBuffer(file);
   };
 
@@ -46,10 +58,27 @@ function ProofOfExistenceInk(props) {
       ) : (
         <>
           <WalletSwitcher account={account} />
+          <Label basic color="teal" style={{ marginLeft: 0, marginTop: ".5em" }}>
+            <Icon name="hand point right outline" />
+            The account connects to Ink! contracts can be different from the one connecting to the
+            chain.
+          </Label>
           <p>You are connected as: {`${account?.name}: ${account.address}`}</p>
-          <p>You have a balance of: {balance ? balance.freeBalance.toString() : "--"}</p>
+          <p>
+            You have a balance of: <b>{balance ? balance.freeBalance.toString() : "--"}</b>
+          </p>
           <hr />
-          <p>My owned files: {ownedFilesRes !== undefined ? ownedFilesRes.join(", ") : "--"}</p>
+          <Header size="medium">Owned Files</Header>
+          {ownedFilesRes && ownedFilesRes.length > 0 ? (
+            <ul>
+              {ownedFilesRes.map((single, idx) => (
+                <li key={`${idx}-${single}`}>{single}</li>
+              ))}
+            </ul>
+          ) : (
+            "No file owned"
+          )}
+
           <Input
             type="file"
             id="poeFile"
@@ -57,15 +86,31 @@ function ProofOfExistenceInk(props) {
             onChange={(e) => computeFileHash(e.target.files[0])}
           />
           <p>File Hash: {fileHash}</p>
-          <button
-            onClick={() => claimTx.signAndSend([fileHash])}
-            disable={shouldDisable(claimTx) ? "true" : "false"}
-          >
-            {shouldDisable(claimTx) ? "Processing..." : "Claim"}
-          </button>
+
+          <TxButton
+            contract={poeContract}
+            text={ownedFilesRes && ownedFilesRes.includes(fileHash) ? "Forfeit File" : "Claim File"}
+            action={ownedFilesRes && ownedFilesRes.includes(fileHash) ? "forfeit" : "claim"}
+            fileHash={fileHash}
+          />
         </>
       )}
     </Grid.Column>
+  );
+}
+
+function TxButton({ contract, text, action, fileHash }) {
+  const tx = useTx(contract, action);
+  return (
+    <Button
+      basic
+      color="blue"
+      type="submit"
+      onClick={() => tx.signAndSend([fileHash])}
+      disable={shouldDisable(tx) ? "true" : "false"}
+    >
+      {shouldDisable(tx) ? "Processing..." : text}
+    </Button>
   );
 }
 
@@ -83,11 +128,7 @@ function WalletSwitcher({ account }) {
     };
   });
   // Sort by the `text` value
-  acctOptions.sort((a, b) => {
-    const aText = a.text.toUpperCase();
-    const bText = b.text.toUpperCase();
-    return aText > bText ? 1 : bText > aText ? -1 : 0;
-  });
+  acctOptions.sort(sortDdOptions);
 
   return (
     <>
@@ -120,6 +161,8 @@ function ConnectWallet(props) {
       image: { avatar: true, src: w.logo.src },
     };
   });
+  // sort by the object `text` value
+  walletTypeOptions.sort(sortDdOptions);
 
   return (
     <>
@@ -144,7 +187,7 @@ export default function PoEWithInkProvider(props) {
     <UseInkProvider
       config={{
         dappName: "Proof of Existence (Ink)",
-        chains: [{ id: "custom", name: "CESS localhost", rpcs: [CHAIN_RPC] }],
+        chains: [{ id: "custom", name: "CESS localhost", rpcs: [config.PROVIDER_SOCKET] }],
       }}
     >
       <ProofOfExistenceInk />

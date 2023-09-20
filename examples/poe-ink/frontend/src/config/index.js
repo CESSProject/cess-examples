@@ -6,7 +6,7 @@ const configEnv = require(`./${process.env.NODE_ENV}.json`);
 const envVarNames = ["REACT_APP_PROVIDER_SOCKET"];
 const envVars = envVarNames.reduce((mem, n) => {
   // Remove the `REACT_APP_` prefix
-  if (process.env[n] !== undefined) mem[n.slice(10)] = process.env[n];
+  if (process.env[n]) mem[n.slice(10)] = process.env[n];
   return mem;
 }, {});
 
