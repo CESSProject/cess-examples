@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "author": "CESS <hello@cess.cloud>",
-  "license": "Unlicense",
+  "license": "MIT",
   "homepage": "https://github.com/hkwtf/cess-course",
   "bugs": {
     "url": "https://github.com/hkwtf/cess-course/issues"

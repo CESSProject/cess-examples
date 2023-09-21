@@ -5,9 +5,6 @@ mod contract {
 	use ink::prelude::{vec, vec::Vec};
 	use ink::storage::Mapping;
 
-	/// Defines the storage of your contract.
-	/// Add new fields to the below struct in order
-	/// to add new static storage fields to your contract.
 	#[ink(storage)]
 	pub struct Contract {
 		/// Mapping from AccountId to hash of files the user owned
@@ -187,7 +184,7 @@ mod contract {
 			assert_eq!(ev_exists, true, "claim event doesn't exist");
 		}
 
-		/// We test a simple use case of our contract.
+		/// We test a simple use case of our contract.`
 		#[ink::test]
 		fn claim_file_works() {
 			let mut contract = Contract::new();

@@ -19,7 +19,7 @@ import config from "./config";
 import metadata from "../../contract/target/ink/poe_ink_contract.json";
 
 // NOTE: Update your deployed contract address below.
-const CONTRACT_ADDR = "cXfiwmGmvcEftA2XcK5HLUP97LWA3dBNN7edCmqUNJKLsJDrs";
+const CONTRACT_ADDR = "cXjN2RG7YEpxx1bCa4zJKy3igsh3DuEo8bHnfKp1KsH5LaUub";
 
 // Simple sort function
 function sortDdOptions(a, b) {
@@ -76,7 +76,7 @@ function ProofOfExistenceInk(props) {
               ))}
             </ul>
           ) : (
-            "No file owned"
+            <p>No file owned</p>
           )}
 
           <Input
