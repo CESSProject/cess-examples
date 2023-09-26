@@ -1,7 +1,7 @@
 {
   "name": "poe-ink-frontend",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "author": "CESS <hello@cess.cloud>",
   "license": "MIT",
   "homepage": "https://github.com/hkwtf/cess-course",
