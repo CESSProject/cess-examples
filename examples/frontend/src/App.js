@@ -1,4 +1,4 @@
-import React, { createRef } from "react";
+import React, { useRef } from "react";
 import { Container, Dimmer, Loader, Grid, Sticky, Message } from "semantic-ui-react";
 import "semantic-ui-css/semantic.min.css";
 
@@ -12,12 +12,14 @@ import Events from './Events'
 import Interactor from "./Interactor";
 import Metadata from "./Metadata";
 import NodeInfo from "./NodeInfo";
-import PoEWithInkProvider from "./ProofOfExistenceInk";
+import PoEWithInk from "./ProofOfExistenceInk";
+import PoEWithSolidity from "./ProofOfExistenceSolidity";
 import Transfer from "./Transfer";
 import Upgrade from "./Upgrade";
 
 function Main() {
   const { apiState, apiError, keyringState } = useSubstrateState();
+  const contextRef = useRef(null);
 
   const loader = (text) => (
     <Dimmer active>
@@ -46,8 +48,6 @@ function Main() {
     return loader("Loading accounts (please review any extension's authorization)");
   }
 
-  const contextRef = createRef();
-
   return (
     <div ref={contextRef}>
       <Sticky context={contextRef}>
@@ -73,7 +73,8 @@ function Main() {
             <Events />
           </Grid.Row>
           <Grid.Row>
-            <PoEWithInkProvider />
+            <PoEWithInk />
+            <PoEWithSolidity />
           </Grid.Row>
         </Grid>
       </Container>

@@ -1,71 +1,113 @@
 import React, { useEffect, useState } from "react";
-import { Feed, Grid, Button } from "semantic-ui-react";
+import { Feed, Grid, Button, Label, Form } from "semantic-ui-react";
 
 import { useSubstrateState } from "./substrate-lib";
 
-// Events to be filtered out from feed
-const FILTERED_EVENTS = ['system:ExtrinsicSuccess::(phase={"applyExtrinsic":0})'];
+// Events to be filtered out from the event feed
+const FILTERED_EVENTS = ["system:ExtrinsicSuccess"];
 
 const eventName = (ev) => `${ev.section}:${ev.method}`;
 const eventParams = (ev) => JSON.stringify(ev.data);
 
 function Main(props) {
   const { api } = useSubstrateState();
-  const [eventFeed, setEventFeed] = useState([]);
+  const [eventFeed, setEventFeed] = useState([[], new Set()]);
 
   useEffect(() => {
     let unsub = null;
-    let keyNum = 0;
+
     const allEvents = async () => {
-      unsub = await api.query.system.events((events) => {
-        // loop through the Vec<EventRecord>
-        events.forEach((record) => {
-          // extract the phase, event and the event types
-          const { event, phase } = record;
+      unsub = await api.query.system.events(async (events) => {
+        // get the current block number
+        const blockNum = await api.derive.chain.bestNumber();
+        const currBlockNum = blockNum.toNumber() + 1;
 
-          // show what we are busy with
-          const evHuman = event.toHuman();
-          const evName = eventName(evHuman);
-          const evParams = eventParams(evHuman);
-          const evNamePhase = `${evName}::(phase=${phase.toString()})`;
+        const feed = events
+          .map((record) => {
+            // extract the phase, event and the event types
+            const evHuman = record.event.toHuman();
+            const evNameNBlock = `${eventName(evHuman)} (block: ${currBlockNum})`;
+            const evParams = eventParams(evHuman);
+            return { evNameNBlock, evParams };
+          })
+          .filter(({ evNameNBlock }) =>
+            !FILTERED_EVENTS.some((toFilterE) =>
+              evNameNBlock.startsWith(toFilterE),
+            ),
+          )
+          .map(({ evNameNBlock, evParams }) => ({
+            key: evNameNBlock,
+            icon: "bell",
+            summary: evNameNBlock,
+            content: evParams,
+          }));
 
-          if (FILTERED_EVENTS.includes(evNamePhase)) return;
+        if (feed.length === 0) return;
 
-          setEventFeed((e) => [
-            {
-              key: `${keyNum}-${evName}-${evParams}`,
-              summary: evName,
-              content: evParams,
-            },
-            ...e,
-          ]);
+        setEventFeed(([prevFeed, prevSet]) => {
+          // Because React fires useEffect() twice in strict mode, we need to ensure the events
+          // haven't been added to the event feed before.
+          const prevFeedSet = Array.from(prevSet);
+          let filteredFeed = feed.filter(
+            (oneFeed) =>
+              !prevFeedSet.some((prevOneFeed) =>
+                prevOneFeed.endsWith(oneFeed.key),
+              ),
+          );
+          if (filteredFeed.length === 0) return [prevFeed, prevSet];
 
-          keyNum += 1;
+          // Adding a sequence number back to the event key
+          filteredFeed = filteredFeed.map(
+            ({ key, icon, summary, content }, idx) => ({
+              key: `${prevSet.size + idx} - ${key}`,
+              icon,
+              summary,
+              content,
+            }),
+          );
+
+          // Construct the newSet
+          const newSet = new Set(prevSet);
+          filteredFeed.forEach((oneFeed) => newSet.add(oneFeed.key));
+          return [[...filteredFeed, ...prevFeed], newSet];
         });
       });
     };
 
-    allEvents();
-    return () => unsub && unsub();
-  }, [api.query.system]);
+    // We only want to call the event subscription fn if it hasn't previously subscribed.
+    !unsub && allEvents();
+
+    return () => {
+      unsub && unsub();
+      unsub = null;
+    };
+  }, [api.derive.chain, api.query.system]);
 
   const { feedMaxHeight = 250 } = props;
 
   return (
     <Grid.Column width={8}>
-      <h1 style={{ float: "left" }}>Events</h1>
-      <Button
-        basic
-        circular
-        size="mini"
-        color="grey"
-        floated="right"
-        icon="erase"
-        onClick={(_) => setEventFeed([])}
-      />
+      <h1>Events
+        <Button
+          basic
+          circular
+          size="mini"
+          color="grey"
+          floated="right"
+          icon="erase"
+          onClick={(_) => setEventFeed([[], new Set()])}
+        />
+      </h1>
+      <Form>
+        <Form.Field>
+          <Label basic color="teal">
+            Block number maybe off by 1
+          </Label>
+        </Form.Field>
+      </Form>
       <Feed
         style={{ clear: "both", overflow: "auto", maxHeight: feedMaxHeight }}
-        events={eventFeed}
+        events={eventFeed[0]}
       />
     </Grid.Column>
   );
@@ -73,5 +115,7 @@ function Main(props) {
 
 export default function Events(props) {
   const { api } = useSubstrateState();
-  return api.query && api.query.system && api.query.system.events ? <Main {...props} /> : null;
+  return api.query && api.query.system && api.query.system.events ? (
+    <Main {...props} />
+  ) : null;
 }

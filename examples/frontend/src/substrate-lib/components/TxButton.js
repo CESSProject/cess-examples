@@ -97,8 +97,12 @@ function TxButton({
         }
         setStatus(`😞 Transaction Failed! ${section}.${method}::${errorInfo}`);
       } else if (section + ":" + method === "system:ExtrinsicSuccess") {
+        const blockHashStatus = status.isFinalized
+          ? status.asFinalized.toString()
+          : "processing...";
         setStatus(
           `❤️️ Transaction successful! tx hash: ${txHash} , Block hash: ${status.asFinalized.toString()}`,
+          `❤️️ Transaction successful! tx hash: ${txHash} , Block hash: ${blockHashStatus}`,
         );
       }
     });
