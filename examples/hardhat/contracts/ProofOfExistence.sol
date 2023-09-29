@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
+
 contract ProofOfExistence {
   mapping(bytes32 => address) public files;
   mapping(address => bytes32[]) public users;
@@ -8,17 +9,18 @@ contract ProofOfExistence {
   event Claimed(address indexed owner, bytes32 indexed file);
   event Forfeited(address indexed owner, bytes32 indexed file);
 
-  constructor() {}
+  error NotFileOwner();
+  error FileAlreadyClaimed();
 
   modifier isOwner(bytes32 hash) {
     address from = msg.sender;
-    require(files[hash] == from, "User is not the file owner");
+    if (files[hash] != from) revert NotFileOwner();
     _;
   }
 
-  modifier notOwned(bytes32 hash) {
+  modifier notClaimed(bytes32 hash) {
     address from = msg.sender;
-    require(files[hash] == address(0), "File is already owned");
+    if (files[hash] != address(0)) revert FileAlreadyClaimed();
     _;
   }
 
@@ -32,7 +34,7 @@ contract ProofOfExistence {
     return users[from];
   }
 
-  function claim(bytes32 hash) public notOwned(hash) returns (bool) {
+  function claim(bytes32 hash) public notClaimed(hash) returns (bool) {
     address from = msg.sender;
 
     // update storage files
@@ -54,8 +56,8 @@ contract ProofOfExistence {
 
     // locate the index of the file going to be deleted.
     bytes32[] storage userFiles = users[from];
-    uint delIdx = 0;
-    for (uint i = 0; i < userFiles.length; i++) {
+    uint32 delIdx = 0;
+    for (uint32 i = 0; i < userFiles.length; i++) {
       if (userFiles[i] == hash) {
         delIdx = i;
         break;
