@@ -4,8 +4,8 @@ pragma solidity ^0.8.19;
 contract Flipper {
   bool public value;
 
-  constructor(bool init_value) {
-    value = init_value;
+  constructor(bool initValue) {
+    value = initValue;
   }
 
   function flip() public {

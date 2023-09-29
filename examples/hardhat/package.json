@@ -1,8 +1,8 @@
 {
-  "name": "deploy-sc-solidity",
+  "name": "cess-hardhat",
   "version": "1.0.0",
   "private": false,
-  "description": "A flipper solidity contract",
+  "description": "Solidity contracts for learning CESS network",
   "author": "CESS <hello@cess.cloud>",
   "license": "MIT",
   "keywords": [
@@ -12,7 +12,8 @@
   "main": "index.js",
   "scripts": {
     "hardhat:compile": "hardhat compile",
-    "hardhat:test": "hardhat test"
+    "hardhat:test": "hardhat test",
+    "hardhat:solhint": "solhint contracts/**/*.sol"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
@@ -28,7 +29,9 @@
     "chai": "^4.2.0",
     "ethers": "^6.4.0",
     "hardhat": "^2.17.3",
+    "hardhat-deploy": "^0.11.37",
     "hardhat-gas-reporter": "^1.0.8",
+    "solhint": "^3.6.2",
     "solidity-coverage": "^0.8.0",
     "ts-node": ">=8.0.0",
     "typechain": "^8.1.0",
