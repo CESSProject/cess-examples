@@ -5,7 +5,15 @@ import "hardhat-deploy";
 
 const config: HardhatUserConfig = {
   solidity: "0.8.19",
-  defaultNetwork: "dev",
+  defaultNetwork: "hardhat",
+  namedAccounts: {
+    deployer: {
+      default: 0,
+    },
+    beneficiary: {
+      default: 1,
+    },
+  },
   networks: {
     hardhat: {
       // issue: https://github.com/sc-forks/solidity-coverage/issues/652,
@@ -16,7 +24,7 @@ const config: HardhatUserConfig = {
       url: "http://localhost:8545",
       accounts: ["0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"],
     },
-    dev: {
+    "cess-local": {
       url: "http://localhost:9944", // RPC endpoint of CESS testnet
       chainId: 11330,
       // private key of `//Alice` from Substrate

@@ -1,6 +1,6 @@
 import {HardhatRuntimeEnvironment} from "hardhat/types";
 
-const CONTRACT = "Flipper";
+const CONTRACT = "ProofOfExistence";
 
 export default async function deploy(hre: HardhatRuntimeEnvironment) {
   const {deployments, getNamedAccounts} = hre;
@@ -10,10 +10,10 @@ export default async function deploy(hre: HardhatRuntimeEnvironment) {
 
   await deploy(CONTRACT, {
     from: deployer,
-    args: [false],
+    args: [],
     log: true,
     autoMine: true, // speed up deployment on local network (ganache, hardhat), no effect on live networks
   });
 }
 
-deploy.tags = ["Flipper"];
+deploy.tags = ["PoE"];
