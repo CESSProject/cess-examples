@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Feed, Grid, Button, Label, Form } from "semantic-ui-react";
+import { Feed, Header, Grid, Button, Label } from "semantic-ui-react";
 
 import { useSubstrateState } from "./substrate-lib";
 
@@ -87,24 +87,21 @@ function Main(props) {
 
   return (
     <Grid.Column width={8}>
-      <h1>Events
-        <Button
-          basic
-          circular
-          size="mini"
-          color="grey"
-          floated="right"
-          icon="erase"
-          onClick={(_) => setEventFeed([[], new Set()])}
-        />
-      </h1>
-      <Form>
-        <Form.Field>
-          <Label basic color="teal">
-            Block number maybe off by 1
-          </Label>
-        </Form.Field>
-      </Form>
+      <Header size="large" floated="left">Events</Header>
+      <Button
+        basic
+        circular
+        size="mini"
+        color="grey"
+        floated="right"
+        icon="erase"
+        onClick={(_) => setEventFeed([[], new Set()])}
+      />
+      <div style={{ clear: "both" }}>
+        <Label basic color="teal">
+          Block number maybe off by 1
+        </Label>
+      </div>
       <Feed
         style={{ clear: "both", overflow: "auto", maxHeight: feedMaxHeight }}
         events={eventFeed[0]}

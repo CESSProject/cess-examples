@@ -1,14 +1,16 @@
 import { React } from "react";
-import { createConfig, configureChains, WagmiConfig } from 'wagmi';
-import { localhost } from 'wagmi/chains';
+import { Grid, Header } from "semantic-ui-react";
+
+import { createConfig, configureChains, WagmiConfig, useConnect, useAccount } from 'wagmi';
 import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
 
 const RPC_ENDPOINT = "http://localhost:9944";
 
+// ref: https://wagmi.sh/react/chains#build-your-own
 const cessLocal = {
   id: 11330,
-  name: "CESS Dev Test",
-  network: "cess-localhost",
+  name: "CESS Local",
+  network: "cess-local",
   nativeCurrency: {
     decimal: 18,
     name: 'CESS Testnet Token',
@@ -20,26 +22,56 @@ const cessLocal = {
   }
 }
 
-export default function PoESolidityWithWagmi(props) {
-  const { publicClient, webSocketPublicClient } = configureChains(
-    [cessLocal, localhost],
-    [jsonRpcProvider({
-      rpc: (chain) => ({
-        http: RPC_ENDPOINT,
-      })
-    })],
-  )
+const { publicClient, webSocketPublicClient } = configureChains(
+  [cessLocal],
+  [jsonRpcProvider({
+    rpc: (chain) => ({
+      http: RPC_ENDPOINT,
+    })
+  })],
+)
 
-  const config = createConfig({
-    publicClient,
-    webSocketPublicClient,
-  })
+const config = createConfig({
+  publicClient,
+  webSocketPublicClient,
+})
 
-  console.log("chain: localhost", localhost);
-  console.log("client: publicClient", publicClient);
-  console.log("config", config);
-
+export default function PoESolidityWithWagmiProvider(props) {
   return <WagmiConfig config={config}>
-    <h1>Proof of Existence (Solidity)</h1>
+    <PoESolidity/>
   </WagmiConfig>
+}
+
+function PoESolidity(props) {
+  const { connector: activeConnector, isConnected } = useAccount();
+  const { connect, connectors, error, isLoading, pendingConnector } = useConnect();
+
+  return <Grid.Column width={8}>
+    <Header size="large">Proof of Existence (Solidity)</Header>
+
+    <>
+      {isConnected && <div>Connected to {activeConnector.name}</div>}
+
+      {connectors.map((connector) => {
+
+        console.log("connector:", connector);
+
+        return <button
+          disabled={!connector.ready}
+          key={connector.id}
+          onClick={() => connect({ connector })}
+        >
+          {connector.name}
+          {isLoading &&
+            pendingConnector?.id === connector.id &&
+            ' (connecting)'}
+        </button>
+      } )}
+
+      {error && <div>{error.message}</div>}
+    </>
+
+
+  </Grid.Column>
+
 }
