@@ -1,8 +1,15 @@
 import { React } from "react";
-import { Grid, Header } from "semantic-ui-react";
-
-import { createConfig, configureChains, WagmiConfig, useConnect, useAccount } from 'wagmi';
-import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
+import { Grid, Header, Button, Dropdown } from "semantic-ui-react";
+import {
+  createConfig,
+  configureChains,
+  WagmiConfig,
+  useConnect,
+  useDisconnect,
+  useAccount,
+  useBalance,
+} from "wagmi";
+import { jsonRpcProvider } from "wagmi/providers/jsonRpc";
 
 const RPC_ENDPOINT = "http://localhost:9944";
 
@@ -13,65 +20,87 @@ const cessLocal = {
   network: "cess-local",
   nativeCurrency: {
     decimal: 18,
-    name: 'CESS Testnet Token',
-    symbol: 'TCESS',
+    name: "CESS Testnet Token",
+    symbol: "TCESS",
   },
   rpcUrls: {
     public: { http: [RPC_ENDPOINT] },
     default: { http: [RPC_ENDPOINT] },
-  }
-}
+  },
+};
 
 const { publicClient, webSocketPublicClient } = configureChains(
   [cessLocal],
-  [jsonRpcProvider({
-    rpc: (chain) => ({
-      http: RPC_ENDPOINT,
-    })
-  })],
-)
+  [
+    jsonRpcProvider({
+      rpc: (chain) => ({
+        http: RPC_ENDPOINT,
+      }),
+    }),
+  ],
+);
 
 const config = createConfig({
   publicClient,
   webSocketPublicClient,
-})
-
-export default function PoESolidityWithWagmiProvider(props) {
-  return <WagmiConfig config={config}>
-    <PoESolidity/>
-  </WagmiConfig>
-}
+});
 
 function PoESolidity(props) {
-  const { connector: activeConnector, isConnected } = useAccount();
-  const { connect, connectors, error, isLoading, pendingConnector } = useConnect();
+  const { address, status } = useAccount();
+  const { data: balanceData } = useBalance({ address });
+  const { disconnect } = useDisconnect();
 
-  return <Grid.Column width={8}>
-    <Header size="large">Proof of Existence (Solidity)</Header>
+  return (
+    <Grid.Column width={8}>
+      <Header size="large">Proof of Existence (Solidity)</Header>
 
+      {status !== "connected" ? (
+        <ConnectWallet />
+      ) : (
+        <>
+          Connected addr: {address}
+          <br />
+          Balance: {`${balanceData?.formatted} ${balanceData?.symbol}`}
+          <br />
+          <Button onClick={() => disconnect()} content="Disconnect" />
+        </>
+      )}
+    </Grid.Column>
+  );
+}
+
+function ConnectWallet(props) {
+  const { connect, connectors, error } = useConnect();
+
+  const connectorMap = {};
+  const connectorOptions = connectors.map((connector) => {
+    connectorMap[connector.id] = connector;
+    return {
+      key: connector.id,
+      text: connector.name,
+      value: connector.id,
+    };
+  });
+
+  return (
     <>
-      {isConnected && <div>Connected to {activeConnector.name}</div>}
-
-      {connectors.map((connector) => {
-
-        console.log("connector:", connector);
-
-        return <button
-          disabled={!connector.ready}
-          key={connector.id}
-          onClick={() => connect({ connector })}
-        >
-          {connector.name}
-          {isLoading &&
-            pendingConnector?.id === connector.id &&
-            ' (connecting)'}
-        </button>
-      } )}
-
+      <Header size="medium">Connect Wallet</Header>
+      <Dropdown
+        placeholder="Select Wallet Type"
+        selection
+        options={connectorOptions}
+        onChange={(_, dropdown) => connect({ connector: connectorMap[dropdown.value] })}
+        value=""
+      />
       {error && <div>{error.message}</div>}
     </>
+  );
+}
 
-
-  </Grid.Column>
-
+export default function PoESolidityWithWagmiProvider(props) {
+  return (
+    <WagmiConfig config={config}>
+      <PoESolidity />
+    </WagmiConfig>
+  );
 }

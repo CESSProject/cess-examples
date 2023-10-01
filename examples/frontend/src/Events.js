@@ -30,10 +30,9 @@ function Main(props) {
             const evParams = eventParams(evHuman);
             return { evNameNBlock, evParams };
           })
-          .filter(({ evNameNBlock }) =>
-            !FILTERED_EVENTS.some((toFilterE) =>
-              evNameNBlock.startsWith(toFilterE),
-            ),
+          .filter(
+            ({ evNameNBlock }) =>
+              !FILTERED_EVENTS.some((toFilterE) => evNameNBlock.startsWith(toFilterE)),
           )
           .map(({ evNameNBlock, evParams }) => ({
             key: evNameNBlock,
@@ -49,22 +48,17 @@ function Main(props) {
           // haven't been added to the event feed before.
           const prevFeedSet = Array.from(prevSet);
           let filteredFeed = feed.filter(
-            (oneFeed) =>
-              !prevFeedSet.some((prevOneFeed) =>
-                prevOneFeed.endsWith(oneFeed.key),
-              ),
+            (oneFeed) => !prevFeedSet.some((prevOneFeed) => prevOneFeed.endsWith(oneFeed.key)),
           );
           if (filteredFeed.length === 0) return [prevFeed, prevSet];
 
           // Adding a sequence number back to the event key
-          filteredFeed = filteredFeed.map(
-            ({ key, icon, summary, content }, idx) => ({
-              key: `${prevSet.size + idx} - ${key}`,
-              icon,
-              summary,
-              content,
-            }),
-          );
+          filteredFeed = filteredFeed.map(({ key, icon, summary, content }, idx) => ({
+            key: `${prevSet.size + idx} - ${key}`,
+            icon,
+            summary,
+            content,
+          }));
 
           // Construct the newSet
           const newSet = new Set(prevSet);
@@ -87,7 +81,9 @@ function Main(props) {
 
   return (
     <Grid.Column width={8}>
-      <Header size="large" floated="left">Events</Header>
+      <Header size="large" floated="left">
+        Events
+      </Header>
       <Button
         basic
         circular
@@ -112,7 +108,5 @@ function Main(props) {
 
 export default function Events(props) {
   const { api } = useSubstrateState();
-  return api.query && api.query.system && api.query.system.events ? (
-    <Main {...props} />
-  ) : null;
+  return api.query && api.query.system && api.query.system.events ? <Main {...props} /> : null;
 }
