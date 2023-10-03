@@ -86,7 +86,7 @@ function ProofOfExistenceInk(props) {
 
           <Input
             type="file"
-            id="poeFile"
+            id="poeFileInk"
             label="Any File"
             onChange={(e) => computeFileHash(e.target.files[0])}
           />
