@@ -4,9 +4,9 @@
   "private": false,
   "author": "CESS <hello@cess.cloud>",
   "license": "MIT",
-  "homepage": "https://github.com/hkwtf/cess-course",
+  "homepage": "https://github.com/CESSProject/cess-course",
   "bugs": {
-    "url": "https://github.com/hkwtf/cess-course/issues"
+    "url": "https://github.com/CESSProject/cess-course/issues"
   },
   "keywords": [
     "substrate",
@@ -45,18 +45,19 @@
     "semantic-ui-css": "^2.5.0",
     "semantic-ui-react": "^3.0.0-beta.0",
     "stream-browserify": "^3.0.0",
+    "usehooks-ts": "^2.9.1",
     "useink": "^1.13.0",
     "viem": "^1.12.2",
     "wagmi": "^1.4.2"
   },
   "devDependencies": {
-    "typescript": "^5.2.2",
     "eslint-config-prettier": "^9.0.0",
     "eslint-config-react-app": "^7.0.1",
     "gh-pages": "^6.0.0",
     "prettier": "3.0.2",
     "react-app-rewired": "^2.2.1",
-    "semistandard": "^17.0.0"
+    "semistandard": "^17.0.0",
+    "typescript": "^5.2.2"
   },
   "eslintConfig": {
     "extends": [

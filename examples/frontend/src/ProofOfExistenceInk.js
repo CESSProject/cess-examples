@@ -41,6 +41,11 @@ function ProofOfExistenceInk(props) {
   const [fileHash, setFileHash] = useState(null);
 
   const computeFileHash = (file) => {
+    if (!file || file.size === 0) {
+      setFileHash("");
+      return;
+    }
+
     const fileReader = new FileReader();
     fileReader.onloadend = (e) => {
       // We extract only the first 64kB  of the file content
