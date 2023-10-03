@@ -1,5 +1,5 @@
 import { React, useState, useEffect } from "react";
-import { Grid, Header, Button, Input, Dropdown, Message } from "semantic-ui-react";
+import { Segment, Header, Button, Input, Dropdown, Message } from "semantic-ui-react";
 import {
   configureChains,
   createConfig,
@@ -102,7 +102,7 @@ function PoESolidity(props) {
   }, [acctStatus]);
 
   return (
-    <Grid.Column width={8}>
+    <Segment style={{ overflowWrap: "break-word" }}>
       <Header size="large">Proof of Existence (Solidity)</Header>
 
       {acctStatus !== "connected" ? (
@@ -140,7 +140,7 @@ function PoESolidity(props) {
           {statusMsg.length > 0 && <Message compact>{statusMsg}</Message>}
         </>
       )}
-    </Grid.Column>
+    </Segment>
   );
 }
 
@@ -160,18 +160,20 @@ function TxButton({ type, fileHash, setStatusMsg }) {
   });
 
   return (
-    <Button
-      basic
-      color="blue"
-      type="submit"
-      content={`${titleize(type)} File`}
-      loading={isLoading}
-      disabled={isLoading}
-      onClick={() => {
-        setStatusMsg("");
-        write?.();
-      }}
-    />
+    <div style={{ textAlign: "center" }}>
+      <Button
+        basic
+        color="blue"
+        type="submit"
+        content={`${titleize(type)} File`}
+        loading={isLoading}
+        disabled={isLoading}
+        onClick={() => {
+          setStatusMsg("");
+          write?.();
+        }}
+      />
+    </div>
   );
 }
 

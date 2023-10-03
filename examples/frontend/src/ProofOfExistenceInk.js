@@ -1,5 +1,5 @@
 import { React, useState } from "react";
-import { Grid, Input, Dropdown, Header, Label, Icon, Button } from "semantic-ui-react";
+import { Segment, Input, Dropdown, Header, Label, Icon, Button } from "semantic-ui-react";
 import {
   useWallet,
   useAllWallets,
@@ -56,7 +56,7 @@ function ProofOfExistenceInk(props) {
   };
 
   return (
-    <Grid.Column width={8}>
+    <Segment style={{ overflowWrap: "break-word" }}>
       <Header size="large">Proof of Existence (ink!)</Header>
       {!account ? (
         <ConnectWallet />
@@ -100,22 +100,24 @@ function ProofOfExistenceInk(props) {
           />
         </>
       )}
-    </Grid.Column>
+    </Segment>
   );
 }
 
 function TxButton({ contract, text, action, fileHash }) {
   const tx = useTx(contract, action);
   return (
-    <Button
-      basic
-      color="blue"
-      type="submit"
-      onClick={() => tx.signAndSend([fileHash])}
-      disable={shouldDisable(tx) ? "true" : "false"}
-    >
-      {shouldDisable(tx) ? "Processing..." : text}
-    </Button>
+    <div style={{ textAlign: "center" }}>
+      <Button
+        basic
+        color="blue"
+        type="submit"
+        onClick={() => tx.signAndSend([fileHash])}
+        disable={shouldDisable(tx) ? "true" : "false"}
+      >
+        {shouldDisable(tx) ? "Processing..." : text}
+      </Button>
+    </div>
   );
 }
 

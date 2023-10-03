@@ -62,19 +62,33 @@ function Main() {
             <BlockNumber finalized />
           </Grid.Row>
           <Grid.Row stretched>
-            <Balances />
+            <Grid.Column>
+              <Balances />
+            </Grid.Column>
           </Grid.Row>
-          <Grid.Row>
-            <Transfer />
-            <Upgrade />
+          <Grid.Row stretched>
+            <Grid.Column width={8}>
+              <Transfer />
+            </Grid.Column>
+            <Grid.Column width={8}>
+              <Upgrade />
+            </Grid.Column>
           </Grid.Row>
-          <Grid.Row>
-            <Interactor />
-            <Events />
+          <Grid.Row stretched>
+            <Grid.Column width={8}>
+              <Interactor />
+            </Grid.Column>
+            <Grid.Column width={8}>
+              <Events />
+            </Grid.Column>
           </Grid.Row>
-          <Grid.Row>
-            <PoEWithInk />
-            <PoEWithSolidity />
+          <Grid.Row stretched>
+            <Grid.Column width={8}>
+              <PoEWithInk />
+            </Grid.Column>
+            <Grid.Column width={8}>
+              <PoEWithSolidity />
+            </Grid.Column>
           </Grid.Row>
         </Grid>
       </Container>

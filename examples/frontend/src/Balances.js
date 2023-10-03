@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Header, Table, Grid, Button, Label } from "semantic-ui-react";
+import { Header, Table, Button, Label, Segment } from "semantic-ui-react";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import { useSubstrateState } from "./substrate-lib";
 
@@ -32,7 +32,7 @@ export default function Main(props) {
   }, [api, keyring, setBalances]);
 
   return (
-    <Grid.Column>
+    <Segment>
       <Header size="large">Balances</Header>
       {accounts.length === 0 ? (
         <Label basic color="yellow">
@@ -73,6 +73,6 @@ export default function Main(props) {
           </Table.Body>
         </Table>
       )}
-    </Grid.Column>
+    </Segment>
   );
 }
