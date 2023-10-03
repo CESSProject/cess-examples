@@ -13,7 +13,8 @@
   "scripts": {
     "hardhat:compile": "hardhat compile",
     "hardhat:test": "hardhat test",
-    "hardhat:solhint": "solhint contracts/**/*.sol"
+    "hardhat:solhint": "solhint contracts/**/*.sol",
+    "redeploy:cess-local": "hardhat deploy --reset --network cess-local"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",

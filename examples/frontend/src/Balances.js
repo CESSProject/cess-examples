@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Table, Grid, Button, Label } from "semantic-ui-react";
+import { Header, Table, Grid, Button, Label } from "semantic-ui-react";
 import { CopyToClipboard } from "react-copy-to-clipboard";
 import { useSubstrateState } from "./substrate-lib";
 
@@ -33,7 +33,7 @@ export default function Main(props) {
 
   return (
     <Grid.Column>
-      <h1>Balances</h1>
+      <Header size="large">Balances</Header>
       {accounts.length === 0 ? (
         <Label basic color="yellow">
           No accounts to be shown

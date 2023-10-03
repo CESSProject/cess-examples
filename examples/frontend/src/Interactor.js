@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Grid, Form, Dropdown, Input, Label } from "semantic-ui-react";
+import { Grid, Header, Form, Dropdown, Input, Label } from "semantic-ui-react";
 
 import { useSubstrateState } from "./substrate-lib";
 import { TxButton, TxGroupButton } from "./substrate-lib/components";
@@ -162,7 +162,7 @@ function Main(props) {
 
   return (
     <Grid.Column width={8}>
-      <h1>Pallet Interactor</h1>
+      <Header size="large">Pallet Interactor</Header>
       <Form>
         <Form.Group style={{ overflowX: "auto" }} inline>
           <label>Interaction Type</label>
