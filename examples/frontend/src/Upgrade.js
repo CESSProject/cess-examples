@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Form, Header, Input, Grid } from "semantic-ui-react";
+import { Form, Header, Input, Segment } from "semantic-ui-react";
 import { TxButton } from "./substrate-lib/components";
 
 export default function Main(props) {
@@ -23,7 +23,7 @@ export default function Main(props) {
   };
 
   return (
-    <Grid.Column width={8}>
+    <Segment>
       <Header size="large">Upgrade Runtime</Header>
       <Form>
         <Form.Field>
@@ -50,6 +50,6 @@ export default function Main(props) {
         </Form.Field>
         <div style={{ overflowWrap: "break-word" }}>{status}</div>
       </Form>
-    </Grid.Column>
+    </Segment>
   );
 }

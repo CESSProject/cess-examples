@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Feed, Header, Grid, Button, Label } from "semantic-ui-react";
+import { Feed, Header, Segment, Button, Label } from "semantic-ui-react";
 
 import { useSubstrateState } from "./substrate-lib";
 
@@ -80,7 +80,7 @@ function Main(props) {
   const { feedMaxHeight = 250 } = props;
 
   return (
-    <Grid.Column width={8}>
+    <Segment>
       <Header size="large" floated="left">
         Events
       </Header>
@@ -102,7 +102,7 @@ function Main(props) {
         style={{ clear: "both", overflow: "auto", maxHeight: feedMaxHeight }}
         events={eventFeed[0]}
       />
-    </Grid.Column>
+    </Segment>
   );
 }
 

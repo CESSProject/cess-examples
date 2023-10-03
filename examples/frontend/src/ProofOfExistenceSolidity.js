@@ -1,5 +1,5 @@
-import { React, useState } from "react";
-import { Grid, Header, Button, Input, Dropdown } from "semantic-ui-react";
+import { React, useState, useEffect } from "react";
+import { Segment, Header, Button, Input, Dropdown, Message } from "semantic-ui-react";
 import {
   configureChains,
   createConfig,
@@ -58,6 +58,10 @@ const poeContract = {
   abi: metadata.abi,
 };
 
+function titleize(str) {
+  return str[0].toUpperCase() + str.slice(1);
+}
+
 function PoESolidity(props) {
   const [fileHash, setFileHash] = useState(null);
   const debouncedFileHash = useDebounce(fileHash, 500);
@@ -73,12 +77,8 @@ function PoESolidity(props) {
     account: address,
     args: [],
     watch: true,
-    onSuccess(data) {
-      setOwnedFilesRes(data);
-    },
-    onError(error) {
-      console.error("error fetching data", error);
-    },
+    onSuccess: (data) => setOwnedFilesRes(data),
+    onError: (error) => console.error("error fetching data", error),
   });
 
   const computeFileHash = (file) => {
@@ -96,8 +96,13 @@ function PoESolidity(props) {
     fileReader.readAsArrayBuffer(file);
   };
 
+  useEffect(() => {
+    setFileHash("");
+    setStatusMsg("");
+  }, [acctStatus]);
+
   return (
-    <Grid.Column width={8}>
+    <Segment style={{ overflowWrap: "break-word" }}>
       <Header size="large">Proof of Existence (Solidity)</Header>
 
       {acctStatus !== "connected" ? (
@@ -111,8 +116,15 @@ function PoESolidity(props) {
           <Button onClick={() => disconnect()} content="Disconnect" />
           <hr />
           <Header size="medium">Owned Files</Header>
-          OwnedFile len: {ownedFilesRes.length} <br />
-          Owned Files: {ownedFilesRes.join(", ")} <br />
+          {ownedFilesRes && ownedFilesRes.length > 0 ? (
+            <ul>
+              {ownedFilesRes.map((single, idx) => (
+                <li key={`${idx}-${single}`}>{single}</li>
+              ))}
+            </ul>
+          ) : (
+            <p>No file owned</p>
+          )}
           <Input
             type="file"
             id="poeFileSolidity"
@@ -125,10 +137,10 @@ function PoESolidity(props) {
             fileHash={debouncedFileHash}
             setStatusMsg={setStatusMsg}
           />
-          {statusMsg.length > 0 && <div>{statusMsg}</div>}
+          {statusMsg.length > 0 && <Message compact>{statusMsg}</Message>}
         </>
       )}
-    </Grid.Column>
+    </Segment>
   );
 }
 
@@ -148,15 +160,20 @@ function TxButton({ type, fileHash, setStatusMsg }) {
   });
 
   return (
-    <Button
-      basic
-      color="blue"
-      type="submit"
-      content={`${type[0].toUpperCase() + type.slice(1)} File`}
-      loading={isLoading}
-      disabled={isLoading}
-      onClick={() => write?.()}
-    />
+    <div style={{ textAlign: "center" }}>
+      <Button
+        basic
+        color="blue"
+        type="submit"
+        content={`${titleize(type)} File`}
+        loading={isLoading}
+        disabled={isLoading}
+        onClick={() => {
+          setStatusMsg("");
+          write?.();
+        }}
+      />
+    </div>
   );
 }
 

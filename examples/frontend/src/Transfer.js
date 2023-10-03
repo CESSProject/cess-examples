@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Form, Header, Input, Grid, Label, Icon, Dropdown } from "semantic-ui-react";
+import { Form, Header, Input, Segment, Label, Icon, Dropdown } from "semantic-ui-react";
 import { TxButton } from "./substrate-lib/components";
 import { useSubstrateState } from "./substrate-lib";
 
@@ -24,7 +24,7 @@ export default function Main(props) {
   });
 
   return (
-    <Grid.Column width={8}>
+    <Segment>
       <Header size="large">Transfer</Header>
       <Form>
         <Form.Field>
@@ -78,6 +78,6 @@ export default function Main(props) {
         </Form.Field>
         <div style={{ overflowWrap: "break-word" }}>{status}</div>
       </Form>
-    </Grid.Column>
+    </Segment>
   );
 }
