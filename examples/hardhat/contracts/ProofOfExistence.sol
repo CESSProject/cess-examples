@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-
 contract ProofOfExistence {
   mapping(bytes32 => address) public files;
   mapping(address => bytes32[]) public users;
@@ -40,7 +39,7 @@ contract ProofOfExistence {
     // update storage files
     files[hash] = from;
 
-    // udpate storage users
+    // update storage users
     bytes32[] storage userFiles = users[from];
     userFiles.push(hash);
 

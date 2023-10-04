@@ -102,7 +102,7 @@ function PoESolidity(props) {
   }, [acctStatus]);
 
   return (
-    <Segment style={{ overflowWrap: "break-word" }}>
+    <Segment style={{ overflowWrap: "break-word", overflowX: "auto" }}>
       <Header size="large">Proof of Existence (Solidity)</Header>
 
       {acctStatus !== "connected" ? (
