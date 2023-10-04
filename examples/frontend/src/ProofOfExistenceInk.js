@@ -56,7 +56,7 @@ function ProofOfExistenceInk(props) {
   };
 
   return (
-    <Segment style={{ overflowWrap: "break-word" }}>
+    <Segment style={{ overflowWrap: "break-word", overflowX: "auto" }}>
       <Header size="large">Proof of Existence (ink!)</Header>
       {!account ? (
         <ConnectWallet />
