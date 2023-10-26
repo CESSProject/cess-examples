@@ -5,15 +5,18 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@polkadot/api':
+    specifier: ^10.10.1
+    version: 10.10.1
   '@tsconfig/node18':
     specifier: ^18.2.2
     version: 18.2.2
   '@types/node':
-    specifier: ^18
+    specifier: ^18.18.6
     version: 18.18.6
   cess-js-sdk:
-    specifier: ^0.7.1
-    version: 0.7.1(@polkadot/util-crypto@12.5.1)(@polkadot/util@12.5.1)
+    specifier: ^0.8.2
+    version: 0.8.2(@polkadot/util-crypto@12.5.1)
   ts-node:
     specifier: ^10.9.1
     version: 10.9.1(@types/node@18.18.6)(typescript@5.2.2)
@@ -589,11 +592,12 @@ packages:
       base-x: 4.0.0
     dev: false
 
-  /cess-js-sdk@0.7.1(@polkadot/util-crypto@12.5.1)(@polkadot/util@12.5.1):
-    resolution: {integrity: sha512-o2wkdcQEtPFaGS02f4dg88CaTo56Y/g+TfK7h2ZDCwE9G0vTsm/fHOzONcq5MwRhfE/xpGIAQKL8oN5otocb+Q==}
+  /cess-js-sdk@0.8.2(@polkadot/util-crypto@12.5.1):
+    resolution: {integrity: sha512-HxIr+jUMJhwGcA2cJNKSoJf2l5FlYZFHpE0ZIfDKCcBlC/OMEcBZoGxbuP3N8zQk+TTKIzrxHtq48xPszOeGEg==}
     dependencies:
       '@polkadot/api': 10.10.1
       '@polkadot/extension-dapp': 0.46.5(@polkadot/api@10.10.1)(@polkadot/util-crypto@12.5.1)(@polkadot/util@12.5.1)
+      '@polkadot/util': 12.5.1
       axios: 1.5.1
       bs58: 5.0.0
       lodash: 4.17.21
@@ -602,7 +606,6 @@ packages:
       sha256: 0.2.0
       short-uuid: 4.2.2
     transitivePeerDependencies:
-      - '@polkadot/util'
       - '@polkadot/util-crypto'
       - bufferutil
       - debug

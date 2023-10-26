@@ -14,10 +14,11 @@
   },
   "keywords": [],
   "dependencies": {
-    "cess-js-sdk": "^0.7.1",
-    "typescript": "^5.2.2",
-    "ts-node": "^10.9.1",
+    "@polkadot/api": "^10.10.1",
+    "@tsconfig/node18": "^18.2.2",
     "@types/node": "^18.18.6",
-    "@tsconfig/node18": "^18.2.2"
+    "cess-js-sdk": "^0.8.2",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
   }
 }
