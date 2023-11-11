@@ -16,7 +16,7 @@ import config from "./config";
 
 // NOTE: In `examples/poe-ink/contract` directory, compile your contract with
 //   `cargo contract build`.
-import metadata from "../../inks/poe/target/ink/poe_ink_contract.json";
+import metadata from "../../ink/poe/target/ink/poe_ink_contract.json";
 
 // NOTE: Update your deployed contract address below.
 const CONTRACT_ADDR = "cXjN2RG7YEpxx1bCa4zJKy3igsh3DuEo8bHnfKp1KsH5LaUub";
