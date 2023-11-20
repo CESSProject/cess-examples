@@ -1,0 +1,35 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "contracts/ProofOfExistence.sol": {
+      "content": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.19;\n\ncontract ProofOfExistence {\n  mapping(bytes32 => address) public files;\n  mapping(address => bytes32[]) public users;\n\n  event Claimed(address indexed owner, bytes32 indexed file);\n  event Forfeited(address indexed owner, bytes32 indexed file);\n\n  error NotFileOwner();\n  error FileAlreadyClaimed();\n\n  modifier isOwner(bytes32 hash) {\n    address from = msg.sender;\n    if (files[hash] != from) revert NotFileOwner();\n    _;\n  }\n\n  modifier notClaimed(bytes32 hash) {\n    address from = msg.sender;\n    if (files[hash] != address(0)) revert FileAlreadyClaimed();\n    _;\n  }\n\n  function hasClaimed(bytes32 hash) public view returns (bool) {\n    address owner = files[hash];\n    return (owner != address(0));\n  }\n\n  function ownedFiles() public view returns (bytes32[] memory) {\n    address from = msg.sender;\n    return users[from];\n  }\n\n  function claim(bytes32 hash) public notClaimed(hash) returns (bool) {\n    address from = msg.sender;\n\n    // update storage files\n    files[hash] = from;\n\n    // update storage users\n    bytes32[] storage userFiles = users[from];\n    userFiles.push(hash);\n\n    emit Claimed(from, hash);\n    return true;\n  }\n\n  function forfeit(bytes32 hash) public isOwner(hash) returns (bool) {\n    address from = msg.sender;\n\n    // update storage files\n    delete files[hash];\n\n    // locate the index of the file going to be deleted.\n    bytes32[] storage userFiles = users[from];\n    uint32 delIdx = 0;\n    for (uint32 i = 0; i < userFiles.length; i++) {\n      if (userFiles[i] == hash) {\n        delIdx = i;\n        break;\n      }\n    }\n    // update storage users by swap-delete\n    if (delIdx != userFiles.length - 1) {\n      userFiles[delIdx] = userFiles[userFiles.length - 1];\n    }\n    // delete\n    userFiles.pop();\n\n    emit Forfeited(from, hash);\n    return true;\n  }\n}\n"
+    }
+  },
+  "settings": {
+    "optimizer": {
+      "enabled": false,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode",
+          "evm.deployedBytecode",
+          "evm.methodIdentifiers",
+          "metadata",
+          "devdoc",
+          "userdoc",
+          "storageLayout",
+          "evm.gasEstimates"
+        ],
+        "": [
+          "ast"
+        ]
+      }
+    },
+    "metadata": {
+      "useLiteralContent": true
+    }
+  }
+}
