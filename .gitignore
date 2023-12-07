@@ -14,4 +14,4 @@
 # Hardhat files
 **/cache
 **/artifacts
-examples/hardhat/deployments
+**/hardhat/deployments
