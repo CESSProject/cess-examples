@@ -314,6 +314,9 @@ pallet-tee-worker = { path = "pallets/tee-worker", default-features = false }
 cess-node-runtime = { path = "standalone/chain/runtime", default-features = false }
 sgx-attestation = { path = "crates/sgx-attestation", default-features = false }
 
+# added pallet
+pallet-template = { path = "pallets/template", default-features = false }
+
 cessc-consensus-rrsc = { path = "crates/rrsc/" }
 cessc-consensus-rrsc-rpc = { path = "crates/rrsc/rpc" }
 cessc-sync-state-rpc = { path = "crates/rrsc/sync-state"}

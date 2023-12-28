@@ -1613,6 +1613,11 @@ impl pallet_cacher::Config for Runtime {
 	type WeightInfo = pallet_cacher::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_template::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = pallet_template::weights::SubstrateWeight<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -1676,6 +1681,9 @@ construct_runtime!(
 		Oss: pallet_oss = 66,
 		Cacher: pallet_cacher = 67,
 		CessTreasury: pallet_cess_treasury = 68,
+
+		// Added pallet
+		Template: pallet_template = 101,
 	}
 );
 

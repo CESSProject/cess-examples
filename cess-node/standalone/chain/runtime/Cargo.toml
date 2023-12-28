@@ -85,6 +85,9 @@ pallet-storage-handler = { workspace = true }
 pallet-oss = { workspace = true }
 pallet-cacher = { workspace = true }
 
+# added pallet
+pallet-template = { workspace = true }
+
 # Frontier
 fp-account = { workspace = true, features = ["serde"] }
 fp-evm = { workspace = true, features = ["serde"] }
@@ -137,7 +140,7 @@ std = [
   "pallet-cess-staking/std",
   "pallet-cess-treasury/std",
   "pallet-child-bounties/std",
-  "pallet-collective/std",    
+  "pallet-collective/std",
   "pallet-contracts-primitives/std",
   "pallet-contracts/std",
   "pallet-dynamic-fee/std",
@@ -168,6 +171,7 @@ std = [
   "pallet-storage-handler/std",
   "pallet-sudo/std",
   "pallet-tee-worker/std",
+  "pallet-template/std",
   "pallet-timestamp/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
   "pallet-transaction-payment/std",
