@@ -61,7 +61,7 @@ async function main() {
 
   await checkNRentSpace(space, common);
   await checkNCreateBucket(bucket);
-  await uploadNDownloadFile(file);
+  await uploadNDownloadDeleteFile(file);
 }
 
 async function checkNRentSpace(space: Space, common: Common) {
@@ -97,24 +97,41 @@ async function checkNCreateBucket(bucket: Bucket) {
   console.log("queryBucketList", res.data);
 }
 
-async function uploadNDownloadFile(fileService: File) {
+async function uploadNDownloadDeleteFile(fileService: File) {
+  // query the file list
   let res = await fileService.queryFileListFull(acctId);
   console.log("queryFileListFull", res);
 
+  // upload the file
   const uploadFile = `${process.cwd()}/package.json`;
   console.log("sample upload file path:", uploadFile);
   res = await fileService.uploadFile(mnemonic, acctId, uploadFile, BUCKET_NAME);
   console.log("uploadFile result:", res);
 
-  const fileHash = res.data;
+  let fileHash = res.data;
 
+  // query the file list again
   res = await fileService.queryFileListFull(acctId);
   console.log("queryFileListFull", res.data);
+  const fileFullList = res.data;
 
+  // download file
   if (res.data.length > 0) {
     const downloadPath = `${process.cwd()}/test-download`;
-    res = await fileService.downloadFile(fileHash, downloadPath);
+    try {
+      res = await fileService.downloadFile(fileHash, downloadPath);
+    } catch (err) {
+      console.error("Download test file error:", err);
+    }
     console.log("downloadFile", res);
+  }
+
+  // delete the file
+  if (fileFullList.length > 0) {
+    fileHash = fileFullList[0].fileHash;
+    process.stdout.write(`Deleting file with hash ${fileHash}...`);
+    res = await fileService.deleteFile(mnemonic, acctId, fileHash);
+    console.log(res);
   }
 }
 
