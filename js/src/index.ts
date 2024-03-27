@@ -29,12 +29,22 @@ const acctId = "cXgaee2N8E77JJv9gdsGAckv1Qsf3hqWYf7NL4q6ZuQzuAUtB";
 const RENT_SPACE = 1; // unit in GB.
 const BUCKET_NAME = "test2"; // bucket name
 
+const TESTNET_CONFIG = {
+  nodeURL: "wss://testnet-rpc1.cess.cloud/ws/",
+  keyringOption: { type: "sr25519", ss58Format: 11330 },
+  gateway: {
+    url: "http://deoss-pub-gateway.cess.cloud/",
+    addr: "cXhwBytXqrZLr1qM5NHJhCzEMckSTzNKw17ci2aHft6ETSQm9",
+  },
+}
+
 async function main() {
-  const { api, keyring } = await InitAPI(testnetConfig);
+  const { api, keyring } = await InitAPI(TESTNET_CONFIG);
+
   const space = new Space(api, keyring);
   const common = new Common(api, keyring);
   const bucket = new Bucket(api, keyring);
-  const file = new File(api, keyring, testnetConfig.gatewayURL);
+  const file = new File(api, keyring, TESTNET_CONFIG.gateway.url, true);
 
   console.log("API initialized.");
 
@@ -51,7 +61,7 @@ async function main() {
 
   await checkNRentSpace(space, common);
   await checkNCreateBucket(bucket);
-  await uploadNDownloadFile(file);
+  await uploadNDownloadDeleteFile(file);
 }
 
 async function checkNRentSpace(space: Space, common: Common) {
@@ -77,32 +87,52 @@ async function checkNCreateBucket(bucket: Bucket) {
   res = await bucket.queryBucketInfo(acctId, BUCKET_NAME);
   console.log("queryBucketInfo", res);
 
-  if (res.data) {
-    console.log("deleting bucket...");
-    // The bucket exists already, so let's delete it first
-    await bucket.deleteBucket(mnemonic, acctId, BUCKET_NAME);
+  if (!res.data) {
+    // The bucket doesn't exist, we create it
+    res = await bucket.createBucket(mnemonic, acctId, BUCKET_NAME);
+    console.log("createBucket", res);
   }
-
-  res = await bucket.createBucket(mnemonic, acctId, BUCKET_NAME);
-  console.log("createBucket", res);
 
   res = await bucket.queryBucketList(acctId);
   console.log("queryBucketList", res.data);
 }
 
-async function uploadNDownloadFile(fileService: File) {
+async function uploadNDownloadDeleteFile(fileService: File) {
+  // query the file list
   let res = await fileService.queryFileListFull(acctId);
-  console.log("queryFileListFull", res.data);
-  const { fileHash } = res.data[0];
+  console.log("queryFileListFull", res);
 
+  // upload the file
   const uploadFile = `${process.cwd()}/package.json`;
-  console.log("uploadFile path:", uploadFile);
+  console.log("sample upload file path:", uploadFile);
   res = await fileService.uploadFile(mnemonic, acctId, uploadFile, BUCKET_NAME);
-  console.log("uploadFile", res);
+  console.log("uploadFile result:", res);
 
-  const downloadPath = `${process.cwd()}/download`;
-  res = await fileService.downloadFile(fileHash, downloadPath);
-  console.log("downloadFile", res);
+  let fileHash = res.data;
+
+  // query the file list again
+  res = await fileService.queryFileListFull(acctId);
+  console.log("queryFileListFull", res.data);
+  const fileFullList = res.data;
+
+  // download file
+  if (res.data.length > 0) {
+    const downloadPath = `${process.cwd()}/test-download`;
+    try {
+      res = await fileService.downloadFile(fileHash, downloadPath);
+      console.log("downloadFile", res);
+    } catch (err) {
+      console.error("Download test file error:", err);
+    }
+  }
+
+  // delete the file
+  if (fileFullList.length > 0) {
+    fileHash = fileFullList[0].fileHash;
+    process.stdout.write(`Deleting file with hash ${fileHash}...`);
+    res = await fileService.deleteFile(mnemonic, acctId, fileHash);
+    console.log(res);
+  }
 }
 
 main()
