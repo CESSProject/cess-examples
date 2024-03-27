@@ -120,10 +120,10 @@ async function uploadNDownloadDeleteFile(fileService: File) {
     const downloadPath = `${process.cwd()}/test-download`;
     try {
       res = await fileService.downloadFile(fileHash, downloadPath);
+      console.log("downloadFile", res);
     } catch (err) {
       console.error("Download test file error:", err);
     }
-    console.log("downloadFile", res);
   }
 
   // delete the file
