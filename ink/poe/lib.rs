@@ -41,6 +41,12 @@ mod contract {
 	// Result type
 	pub type Result<T> = core::result::Result<T, Error>;
 
+	impl Default for Contract {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
 	impl Contract {
 		/// Constructor to initialize the contract
 		#[ink(constructor)]
@@ -53,15 +59,12 @@ mod contract {
 		#[ink(message)]
 		pub fn owned_files(&self) -> Vec<Hash> {
 			let from = self.env().caller();
-			self.users.get(from).unwrap_or(Vec::<Hash>::new())
+			self.users.get(from).unwrap_or_default()
 		}
 
 		#[ink(message)]
 		pub fn has_claimed(&self, file: Hash) -> bool {
-			match self.files.get(file) {
-				Some(_) => true,
-				None => false,
-			}
+			self.files.get(file).is_some()
 		}
 
 		/// A message to claim the ownership of the file hash
@@ -111,7 +114,7 @@ mod contract {
 			}
 
 			// Confirmed the caller is the file owner. Update the two storage
-			let mut files = self.users.get(from).unwrap_or(vec![]);
+			let mut files = self.users.get(from).unwrap_or_default();
 			for idx in 0..files.len() {
 				if files[idx] == file {
 					files.swap_remove(idx);
