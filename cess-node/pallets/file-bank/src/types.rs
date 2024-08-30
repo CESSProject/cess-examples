@@ -83,6 +83,7 @@ pub struct FragmentInfo<T: Config> {
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct UserFileSliceInfo {
+	pub(super) territory_name: TerrName,
 	pub(super) file_hash: Hash,
 	pub(super) file_size: u128,
 }
@@ -101,7 +102,8 @@ pub struct BucketInfo<T: Config> {
 pub struct UserBrief<T: Config> {
 	pub user: AccountOf<T>,
 	pub file_name: BoundedVec<u8, T::NameStrLimit>,
-	pub bucket_name:  BoundedVec<u8, T::NameStrLimit>,
+	pub bucket_name: BoundedVec<u8, T::NameStrLimit>,
+	pub territory_name: TerrName,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
@@ -128,7 +130,13 @@ pub struct RestoralOrderInfo<T: Config> {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub struct TagSigInfo<AccountId> {
 	pub(super) miner: AccountId,
+	pub(super) digest: BoundedVec<DigestInfo, ConstU32<1000>>,
 	pub(super) file_hash: Hash,
-	pub(super) tee_acc: AccountId,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+pub struct DigestInfo {
+	pub(super) fragment: Hash,
+	pub(super) tee_puk: WorkerPublicKey, 
 }
 

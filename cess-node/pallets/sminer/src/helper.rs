@@ -1,3 +1,5 @@
+use sp_runtime::traits::CheckedDiv;
+
 use super::*;
 
 impl<T: Config> Pallet<T> {
@@ -6,7 +8,7 @@ impl<T: Config> Pallet<T> {
 		accumulator: Accumulator,
 		check_front: u64,
 		rear: u64, 
-		tee_sig: TeeRsaSignature,
+		tee_sig: TeeSig,
 	) -> Result<u128, DispatchError> {
 		MinerItems::<T>::try_mutate(acc, |miner_info_opt| -> Result<u128, DispatchError> {
 			let miner_info = miner_info_opt.as_mut().ok_or(Error::<T>::NotMiner)?;
@@ -48,7 +50,7 @@ impl<T: Config> Pallet<T> {
 		accumulator: Accumulator, 
 		front: u64,
 		check_rear: u64,
-		tee_sig: TeeRsaSignature,
+		tee_sig: TeeSig,
 	) -> Result<u64, DispatchError> {
 		MinerItems::<T>::try_mutate(acc, |miner_info_opt| -> Result<u64, DispatchError> {
 			let miner_info = miner_info_opt.as_mut().ok_or(Error::<T>::NotMiner)?;
@@ -158,54 +160,149 @@ impl<T: Config> Pallet<T> {
 
     pub(super) fn calculate_miner_reward(
 		miner: &AccountOf<T>,
-		total_idle_space: u128,
-		total_service_space: u128,
-		miner_idle_space: u128,
-		miner_service_space: u128,
 	) -> DispatchResult {
-		let total_reward = T::RewardPool::get_reward_base();
-		let total_power = Self::calculate_power(total_idle_space, total_service_space);
-		let miner_power = Self::calculate_power(miner_idle_space, miner_service_space);
+		let order_list = <CompleteMinerSnapShot<T>>::mutate(&miner, |snap_shot_list| -> Result<Vec<RewardOrder::<BalanceOf<T>, BlockNumberFor<T>>>, DispatchError> {
+			if snap_shot_list.len() == 0 {
+				return Ok(Default::default());
+			}
 
-		let miner_prop = Perbill::from_rational(miner_power, total_power);
-		let this_round_reward = miner_prop.mul_floor(total_reward);
+			let mut order_list: Vec<RewardOrder::<BalanceOf<T>, BlockNumberFor<T>>> = Default::default();
 
-		let order = RewardOrder::<BalanceOf<T>>{
-			order_reward: this_round_reward.try_into().map_err(|_| Error::<T>::Overflow)?,
-		};
+			for snap_shot in snap_shot_list.into_iter() {
+				if snap_shot.issued == false {
+					let cur_era = T::Staking::current_era();
+					if snap_shot.era_index >= cur_era {
+						continue;
+					}
+
+					let total_power = <CompleteSnapShot<T>>::get(snap_shot.era_index).total_power;
+					let total_reward = T::RewardPool::get_round_reward(snap_shot.era_index);
+					if total_reward == BalanceOf::<T>::zero() {
+						Err(Error::<T>::Unexpected)?;
+					}
+					let miner_prop = Perbill::from_rational(snap_shot.power, total_power);
+					let this_round_reward = miner_prop.mul_floor(total_reward);
+					T::RewardPool::sub_round_reward(snap_shot.era_index, this_round_reward)?;
+					let each_reward = AOIR_PERCENT
+						.mul_floor(this_round_reward)
+						.checked_div(&RELEASE_NUMBER.into()).ok_or(Error::<T>::Overflow)?;
+					let order = RewardOrder::<BalanceOf<T>, BlockNumberFor<T>> {
+						receive_count: 0,
+						max_count: RELEASE_NUMBER,
+						atonce: false,
+						order_reward: this_round_reward,
+						each_amount: each_reward,
+						last_receive_block: snap_shot.finsh_block,
+					};
+					order_list.push(order);
+					snap_shot.issued = true;
+				}
+			}
+
+			snap_shot_list.retain(|snap_shot| snap_shot.issued == false);
+
+			Ok(order_list)
+		})?;
+
+		if order_list.len() == 0 {
+			return Ok(());
+		}
+		
 		// calculate available reward
 		RewardMap::<T>::try_mutate(miner, |opt_reward_info| -> DispatchResult {
 			let reward_info = opt_reward_info.as_mut().ok_or(Error::<T>::Unexpected)?;
 			// traverse the order list
-			reward_info.currently_available_reward = reward_info.currently_available_reward
-					.checked_add(&this_round_reward).ok_or(Error::<T>::Overflow)?;
 
+			let mut flag = true;
 			if reward_info.order_list.len() == RELEASE_NUMBER as usize {
-				reward_info.order_list.remove(0);
+				flag = false;
 			}
-			reward_info.total_reward = reward_info.total_reward
-				.checked_add(&this_round_reward).ok_or(Error::<T>::Overflow)?;
-			reward_info.order_list.try_push(order.clone()).map_err(|_| Error::<T>::BoundedVecError)?;
+
+			let mut new_reward = BalanceOf::<T>::zero();
+			for order in order_list {
+				if flag {
+					reward_info.total_reward = reward_info.total_reward
+						.checked_add(&order.order_reward).ok_or(Error::<T>::Overflow)?;
+					new_reward = new_reward.checked_add(&order.order_reward).ok_or(Error::<T>::Overflow)?;
+					reward_info.order_list.try_push(order.clone()).map_err(|_| Error::<T>::BoundedVecError)?;
+				} else {
+					new_reward = new_reward.checked_add(&order.order_reward).ok_or(Error::<T>::Overflow)?;
+					T::RewardPool::reward_reserve(order.order_reward)?;
+				}
+			}
+			
+			T::RewardPool::sub_reward(new_reward)?;
 
 			Ok(())
 		})?;
-
-		T::RewardPool::sub_reward(order.order_reward)?;
 		
 		Ok(())
 	}
 
-	pub(super) fn clear_punish(miner: &AccountOf<T>, idle_space: u128, service_space: u128) -> DispatchResult {
+	pub(super) fn distribute_rewards(miner: &AccountOf<T>, beneficiary: AccountOf<T>) -> DispatchResult {
+		<RewardMap<T>>::try_mutate(miner, |opt_reward| -> DispatchResult {
+			let reward = opt_reward.as_mut().ok_or(Error::<T>::Unexpected)?;
+			let one_day = T::OneDayBlock::get();
+			let now = <frame_system::Pallet<T>>::block_number();
+			let mut avail_reward: BalanceOf<T> = BalanceOf::<T>::zero(); 
+
+			for order in reward.order_list.iter_mut() {
+				let diff = now.checked_sub(&order.last_receive_block).ok_or(Error::<T>::Overflow)?;
+				if diff >= one_day {
+					let count = diff.checked_div(&one_day).ok_or(Error::<T>::Overflow)?;
+					let avail_count: u8;
+					if order.receive_count.saturating_add(count.saturated_into()) > order.max_count {
+						avail_count = order.max_count.checked_sub(order.receive_count).ok_or(Error::<T>::Unexpected)?;
+					} else {
+						avail_count = count.saturated_into();
+					}
+
+					if avail_count > 0 {
+						let order_avail_reward = order.each_amount.checked_mul(&avail_count.into()).ok_or(Error::<T>::Overflow)?;
+						avail_reward = avail_reward.checked_add(&order_avail_reward).ok_or(Error::<T>::Overflow)?;
+						order.receive_count = order.receive_count.checked_add(avail_count).ok_or(Error::<T>::Overflow)?;
+						order.last_receive_block = now;
+					}
+				}
+
+				if !order.atonce {
+					avail_reward = avail_reward.checked_add(
+						&(AOIR_PERCENT.mul_floor(order.order_reward))
+					).ok_or(Error::<T>::Overflow)?;
+					order.atonce = true;
+				}
+			}
+
+			reward.order_list.retain(|order| order.max_count != order.receive_count);
+
+			reward.reward_issued = reward.reward_issued.checked_add(&avail_reward).ok_or(Error::<T>::Overflow)?;
+
+			T::RewardPool::send_reward_to_miner(beneficiary.clone(), avail_reward)?;
+
+			Self::deposit_event(Event::<T>::Receive { acc: beneficiary, reward: avail_reward });
+
+			Ok(())
+		})
+	}
+
+	pub(super) fn clear_punish(miner: &AccountOf<T>, idle_space: u128, service_space: u128, count: u8) -> DispatchResult {
 		let power = Self::calculate_power(idle_space, service_space);
 		let limit: BalanceOf<T> = Self::calculate_limit_by_space(power)?
 			.try_into().map_err(|_| Error::<T>::Overflow)?;
 		let miner_reward = <RewardMap<T>>::try_get(&miner).map_err(|_| Error::<T>::NotMiner)?;
 			
-		// FOR TESTING
 		let reward: u128 = miner_reward.total_reward.try_into().map_err(|_| Error::<T>::Overflow)?;
 		let punish_amount = match reward {
 			0 => 100u128.try_into().map_err(|_| Error::<T>::Overflow)?,
-			_ => Perbill::from_percent(5).mul_floor(limit),
+			_ => {
+				let punish_amount = match count {
+					1 => BalanceOf::<T>::zero(),
+					2 => Perbill::from_percent(5).mul_floor(limit),
+					3 => Perbill::from_percent(15).mul_floor(limit),
+					_ => Perbill::from_percent(15).mul_floor(limit),
+				};
+				punish_amount
+			},
 		};
 
 		Self::deposit_punish(miner, punish_amount)?;
@@ -238,7 +335,6 @@ impl<T: Config> Pallet<T> {
 	}
     // Note: that it is necessary to determine whether the state meets the exit conditions before use.
 	pub(super) fn force_miner_exit(acc: &AccountOf<T>) -> DispatchResult {
-		
 		let mut miner_list = AllMiner::<T>::get();
 		miner_list.retain(|s| s != acc);
 		AllMiner::<T>::put(miner_list);
@@ -246,10 +342,31 @@ impl<T: Config> Pallet<T> {
 		<MinerItems<T>>::try_mutate(acc, |miner_opt| -> DispatchResult {
 			let miner = miner_opt.as_mut().ok_or(Error::<T>::Unexpected)?;
 			if let Ok(reward_info) = <RewardMap<T>>::try_get(acc).map_err(|_| Error::<T>::NotExisted) {
-				T::RewardPool::send_reward_to_miner(miner.beneficiary.clone(), reward_info.total_reward)?;
+				// T::RewardPool::send_reward_to_miner(miner.beneficiary.clone(), reward_info.total_reward)?;
+				if reward_info.total_reward == BalanceOf::<T>::zero() {
+					let spec_acc = T::ReservoirGate::get_reservoir_acc();
+					if spec_acc == miner.staking_account {
+						T::ReservoirGate::redeem(acc, miner.collaterals, false)?;
+					}
+					T::Currency::unreserve(&miner.staking_account, miner.collaterals);
+				} else {
+					Self::calculate_miner_reward(acc)?;
+					Self::distribute_rewards(acc, miner.beneficiary.clone())?;
+					let residue_reward = reward_info.total_reward.checked_sub(&reward_info.reward_issued).ok_or(Error::<T>::Overflow)?;
+					T::RewardPool::add_reward(residue_reward)?;
+					let start_block = <StakingStartBlock<T>>::try_get(&acc).map_err(|_| Error::<T>::BugInvalid)?;
+					let staking_lock_block = T::StakingLockBlock::get();
+					let exec_block = start_block.checked_add(&staking_lock_block).ok_or(Error::<T>::Overflow)?;
+					<ReturnStakingSchedule<T>>::try_mutate(&exec_block, |miner_list| -> DispatchResult {
+						miner_list
+							.try_push((acc.clone(), miner.staking_account.clone(), miner.collaterals.clone()))
+							.map_err(|_| Error::<T>::BoundedVecError)?;
+
+						Ok(())
+					})?;
+				}
 			}
 			T::StorageHandle::sub_total_idle_space(miner.idle_space + miner.lock_space)?;
-			T::Currency::unreserve(&miner.staking_account, miner.collaterals);
 			Self::create_restoral_target(acc, miner.service_space + miner.lock_space)?;
 			miner.state = Self::str_to_bound(STATE_OFFLINE)?;
 			let space_proof_info = miner.space_proof_info.clone().ok_or(Error::<T>::NotpositiveState)?;
@@ -259,6 +376,7 @@ impl<T: Config> Pallet<T> {
 			Ok(())
 		})?;
 
+		<CompleteMinerSnapShot<T>>::remove(acc);
 		<RewardMap<T>>::remove(acc);
 		<PendingReplacements<T>>::remove(acc);
 
