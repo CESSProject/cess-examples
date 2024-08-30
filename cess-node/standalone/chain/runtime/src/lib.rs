@@ -1409,6 +1409,9 @@ mod runtime {
 
 	#[runtime::pallet_index(111)]
 	pub type EvmAccountMapping = pallet_evm_account_mapping;
+
+	#[runtime::pallet_index(112)]
+	pub type Template = pallet_template;
 	//------------------- CESS's end ---------------------
 }
 
