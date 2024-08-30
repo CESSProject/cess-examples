@@ -1,5 +1,5 @@
 [toolchain]
-channel = "nightly-2023-07-16"
+channel = "1.80.0" # rustc 1.80.0 (051478957 2024-07-21)
 components = [
 	"cargo",
 	"clippy",

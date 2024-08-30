@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
         let deal_info = <DealMap<T>>::try_get(deal_hash).map_err(|_| Error::<T>::NonExistent)?;
         let segment_len = deal_info.segment_list.len() as u128;
 		let needed_space = Self::cal_file_size(segment_len);
-		T::StorageHandle::unlock_user_space(&deal_info.user.user, needed_space)?;
+		T::StorageHandle::unlock_user_space(&deal_info.user.user, &deal_info.user.territory_name, needed_space)?;
 		// unlock mienr space
 		for complete_info in deal_info.complete_list {
             T::MinerControl::unlock_space(&complete_info.miner, FRAGMENT_SIZE * segment_len)?;
@@ -136,7 +136,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(super) fn cal_file_size(len: u128) -> u128 {
-        len * (SEGMENT_SIZE * 15 / 10)
+        len * (SEGMENT_SIZE * 30 / 10)
     }
 
     pub(super) fn delete_user_file(file_hash: &Hash, acc: &AccountOf<T>, file: &FileInfo<T>) -> Result<Weight, DispatchError> {
@@ -189,12 +189,12 @@ impl<T: Config> Pallet<T> {
     // The status of the file must be confirmed before use.
     pub(super) fn remove_file_owner(file_hash: &Hash, acc: &AccountOf<T>, user_clear: bool) -> DispatchResult {
         <File<T>>::try_mutate(file_hash, |file_opt| -> DispatchResult {
-            let file = file_opt.as_mut().ok_or(Error::<T>::Overflow)?;
+            let file = file_opt.as_mut().ok_or(Error::<T>::NonExistent)?;
             for (index, user_brief) in file.owner.iter().enumerate() {
                 if acc == &user_brief.user {
                     let file_size = Self::cal_file_size(file.segment_list.len() as u128);
                     if user_clear {
-                        T::StorageHandle::update_user_space(acc, 2, file_size)?;
+                        T::StorageHandle::sub_territory_used_space(acc, &user_brief.territory_name, file_size)?;
                     }
                     file.owner.remove(index);
                     break;
@@ -264,8 +264,13 @@ impl<T: Config> Pallet<T> {
         }
 
         if user_clear {
-            T::StorageHandle::update_user_space(acc, 2, total_fragment_dec as u128 * FRAGMENT_SIZE)?;
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+            for user_brief in file.owner {
+                if &user_brief.user == acc {
+                    T::StorageHandle::sub_territory_used_space(acc, &user_brief.territory_name, total_fragment_dec as u128 * FRAGMENT_SIZE)?;
+                    weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+                    break;
+                }
+            }
         }
         T::StorageHandle::sub_total_service_space(total_fragment_dec as u128 * FRAGMENT_SIZE)?;
         weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
@@ -319,9 +324,13 @@ impl<T: Config> Pallet<T> {
         user: &AccountOf<T>,
         file_hash: Hash,
         file_size: u128,
+        territory_name: TerrName,
     ) -> DispatchResult {
-        let file_info =
-            UserFileSliceInfo { file_hash: file_hash, file_size };
+        let file_info = UserFileSliceInfo { 
+            territory_name, 
+            file_hash: file_hash, 
+            file_size,
+        };
         <UserHoldFileList<T>>::try_mutate(user, |v| -> DispatchResult {
             ensure!(!v.contains(&file_info), Error::<T>::Existed);
             v.try_push(file_info).map_err(|_| Error::<T>::StorageLimitReached)?;
@@ -424,13 +433,5 @@ impl<T: Config> Pallet<T> {
         }
 
         return 0;
-    }
-
-    pub(super) fn get_segment_length_from_file(file_hash: &Hash) -> u32 {
-        if let Ok(file) = <File<T>>::try_get(file_hash) {
-            return file.segment_list.len() as u32;
-        }
-
-        return 0;
-    }
+    }    
 }

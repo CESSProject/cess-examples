@@ -27,7 +27,6 @@
 use frame_support::traits::{
 	FindAuthor, Randomness,
 	StorageVersion,
-	schedule::{Anon as ScheduleAnon, Named as ScheduleNamed}, 
 };
 // use sc_network::Multiaddr;
 
@@ -64,7 +63,7 @@ use pallet_storage_handler::StorageHandle;
 use cp_scheduler_credit::SchedulerCreditCounter;
 use sp_runtime::{
 	traits::{
-		BlockNumberProvider, CheckedAdd, Dispatchable
+		BlockNumberProvider, CheckedAdd
 	},
 	RuntimeDebug, SaturatedConversion,
 };
@@ -78,7 +77,7 @@ use sp_std::{
 use pallet_sminer::MinerControl;
 use pallet_tee_worker::TeeWorkerHandler;
 use pallet_oss::OssFindAuthor;
-use cp_enclave_verify::verify_rsa;
+use ces_types::WorkerPublicKey;
 
 pub use weights::WeightInfo;
 
@@ -106,18 +105,11 @@ pub mod pallet {
 
 		type RuntimeCall: From<Call<Self>>;
 
-		type FScheduler: ScheduleNamed<BlockNumberFor<Self>, Self::SProposal, Self::SPalletsOrigin>;
-
-		type AScheduler: ScheduleAnon<BlockNumberFor<Self>, Self::SProposal, Self::SPalletsOrigin>;
-		/// Overarching type of all pallets origins.
-		type SPalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
-		/// The SProposal.
-		type SProposal: Parameter + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin> + From<Call<Self>>;
 		// Find the consensus of the current block
 		type FindAuthor: FindAuthor<Self::AccountId>;
 		// Used to find out whether the schedule exists
-		type TeeWorkerHandler: TeeWorkerHandler<Self::AccountId>;
-		// It is used to control the computing power and space of miners
+		type TeeWorkerHandler: TeeWorkerHandler<Self::AccountId, BlockNumberFor<Self>>;
+		// It is used to control the computing power and space of miners 
 		type MinerControl: MinerControl<Self::AccountId, BlockNumberFor<Self>>;
 		// Interface that can generate random seeds	
 		type MyRandomness: Randomness<Option<Self::Hash>, BlockNumberFor<Self>>;
@@ -175,8 +167,6 @@ pub mod pallet {
 
 		ReplaceFiller { acc: AccountOf<T>, filler_list: Vec<Hash> },
 
-		CalculateEnd{ file_hash: Hash },
-
 		IdleSpaceCert { acc: AccountOf<T>, space: u128 },
 
 		ReplaceIdleSpace { acc: AccountOf<T>, space: u128 },
@@ -194,75 +184,79 @@ pub mod pallet {
 		StorageCompleted { file_hash: Hash },
 
 		CalculateReport { miner: AccountOf<T>, file_hash: Hash },
+
+		TerritoryFileDelivery { file_hash: Hash, new_territory: TerrName },
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		Existed,
-
+		/// File already exists
 		FileExistent,
-		//file doesn't exist.
+		/// file doesn't exist
 		FileNonExistent,
-		//overflow.
+		/// Data operation overflow
 		Overflow,
-
+		/// Not the owner of the file
 		NotOwner,
-
-		NotQualified,
-		//It is not an error message for scheduling operation
+		/// It is not an error message for scheduling operation
 		ScheduleNonExistent,
-		//Error reporting when boundedvec is converted to VEC
+		/// Error reporting when boundedvec is converted to VEC
 		BoundedVecError,
-		//Error that the storage has reached the upper limit.
+		/// Error indicating that the storage has reached its limit
 		StorageLimitReached,
-		//The miner's calculation power is insufficient, resulting in an error that cannot be
-		// replaced
+		/// The miner's calculation power is insufficient, resulting in an error that cannot be replaced
 		MinerPowerInsufficient,
-
+		/// The bucket is not empty
 		NotEmpty,
-		//Multi consensus query restriction of off chain workers
+		/// Multi consensus query restriction of off chain workers
 		Locked,
-
+		/// Length exceeds limit, maximum of 42 bytes
 		LengthExceedsLimit,
-
-		Declarated,
-
+		/// Some operations that should not have errors
 		BugInvalid,
-
+		/// Error encountered when converting Hash
 		ConvertHashError,
-		//No operation permission
+		/// No operation permission. Perhaps it was not authorized
 		NoPermission,
-		//user had same name bucket
+		/// User had same name bucket
 		SameBucketName,
-		//Bucket, file, and scheduling errors do not exist
+		/// Bucket, file, and scheduling errors do not exist
 		NonExistent,
-		//Unexpected error
+		/// Logically speaking, errors that should not occur
 		Unexpected,
-		//Less than minimum length
+		/// Less than minimum length
 		LessMinLength,
-		//The file is in an unprepared state
+		/// The file is in an unprepared state
 		Unprepared,
-		//Transfer target acc already have this file
+		/// Transfer target acc already have this file
 		IsOwned,
-		//The file does not meet the specification
+		/// The file does not meet the specification
 		SpecError,
-
-		NodesInsufficient,
-		// This is a bug that is reported only when the most undesirable 
-		// situation occurs during a transaction execution process.
+		/// This is a bug that is reported only when the most undesirable situation occurs during a transaction execution process
 		PanicOverflow,
-
+		/// The user currently has insufficient available storage space
 		InsufficientAvailableSpace,
-		// The file is in a calculated tag state and cannot be deleted
+		/// The file is in a calculated tag state and cannot be deleted
 		Calculate,
-
+		/// Miners need to be in a positive state
 		MinerStateError,
-
+		/// The deadline for restoring files has expired
 		Expired,
-
+		/// Failed to verify the signature of tee
 		VerifyTeeSigFailed,
-
+		/// The type of tee does not have permission to execute this function
 		TeeNoPermission,
+		/// Validation digest error during file tag calculation process
+		DigestError,
+		/// Error converting tee signature
+		MalformedSignature,
+		/// Error in comparing miner account information
+		MinerError,
+		/// Does not comply with the rules: fragments of a segment need to be stored on different miners
+		RulesNotAllowed,
+		/// The status of the file needs to be Active
+		NotActive,
 	}
 
 	#[pallet::storage]
@@ -274,6 +268,7 @@ pub mod pallet {
 	pub(super) type File<T: Config> =
 		StorageMap<_, Blake2_128Concat, Hash, FileInfo<T>>;
 
+	// todo! Consider that the storage structure can be optimized to BTreeMap
 	#[pallet::storage]
 	#[pallet::getter(fn user_hold_file_list)]
 	pub(super) type UserHoldFileList<T: Config> = StorageMap<
@@ -283,11 +278,6 @@ pub mod pallet {
 		BoundedVec<UserFileSliceInfo, T::UserFileLimit>,
 		ValueQuery,
 	>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn miner_lock)]
-	pub(super) type MinerLock<T: Config> = 
-		StorageMap<_, Blake2_128Concat, AccountOf<T>, BlockNumberFor<T>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn bucket)]
@@ -320,7 +310,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn clear_user_list)]
 	pub(super) type ClearUserList<T: Config> = 
-		StorageValue<_, BoundedVec<AccountOf<T>, ConstU32<5000>>, ValueQuery>;
+		StorageValue<_, BoundedVec<(AccountOf<T>, TerrName), ConstU32<2000>>, ValueQuery>;
 	
 	#[pallet::storage]
 	#[pallet::getter(fn task_failed_count)]
@@ -333,27 +323,27 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			let days = T::OneDay::get();
+		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			let mut weight: Weight = Weight::zero();
-			// FOR TESTING
-			if now % days == 0u32.saturated_into() {
-				let (temp_weight, acc_list) = T::StorageHandle::frozen_task();
-				weight = weight.saturating_add(temp_weight);
-				let temp_acc_list: BoundedVec<AccountOf<T>, ConstU32<5000>> = 
-					acc_list.try_into().unwrap_or_default();
-				ClearUserList::<T>::put(temp_acc_list);
-				weight = weight.saturating_add(T::DbWeight::get().writes(1));
-			}
+			
+			let (temp_weight, clear_list) = T::StorageHandle::frozen_task();
+			weight = weight.saturating_add(temp_weight);
+			let temp_acc_list: BoundedVec<(AccountOf<T>, TerrName), ConstU32<2000>> = 
+				clear_list.try_into().unwrap_or_default();
+			ClearUserList::<T>::put(temp_acc_list);
+			weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
 			let mut count: u32 = 0;
-			let acc_list = ClearUserList::<T>::get();
+			let clear_list = ClearUserList::<T>::get();
 			weight = weight.saturating_add(T::DbWeight::get().reads(1));
-			for acc in acc_list.iter() {
+			for (acc, territory_name) in clear_list.iter() {
 				// todo! Delete in blocks, and delete a part of each block
 				if let Ok(mut file_info_list) = <UserHoldFileList<T>>::try_get(&acc) {
 					weight = weight.saturating_add(T::DbWeight::get().reads(1));
 					while let Some(file_info) = file_info_list.pop() {
+						if file_info.territory_name != *territory_name {
+							continue;
+						}
 						count = count.checked_add(1).unwrap_or(ONCE_MAX_CLEAR_FILE);
 						if count == ONCE_MAX_CLEAR_FILE {
 							<UserHoldFileList<T>>::insert(&acc, file_info_list);
@@ -363,7 +353,7 @@ pub mod pallet {
 							weight = weight.saturating_add(T::DbWeight::get().reads(1));
 							if file.owner.len() > 1 {
 								match Self::remove_file_owner(&file_info.file_hash, &acc, false) {
-									Ok(()) => weight = weight.saturating_add(T::DbWeight::get(). reads_writes(2, 2)),
+									Ok(()) => weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 2)),
 									Err(e) => log::info!("delete file {:?} failed. error is: {:?}", e, file_info.file_hash),
 								};
 							 } else {
@@ -375,25 +365,21 @@ pub mod pallet {
 									weight = weight.saturating_add(temp_weight);
 								}
 							}
+
+							if let Err(e) = Self::bucket_remove_file(&file_info.file_hash, &acc, &file) {
+								log::error!("[FileBank]: space lease, delete file from bucket report a bug! {:?}", e);
+							}
 						} else {
 							log::error!("space lease, delete file bug!");
 							log::error!("acc: {:?}, file_hash: {:?}", &acc, &file_info.file_hash);
 						}
-					}
 
-					match T::StorageHandle::delete_user_space_storage(&acc) {
-						Ok(temp_weight) => weight = weight.saturating_add(temp_weight),
-						Err(e) => log::info!("delete user sapce error: {:?}, \n failed user: {:?}", e, acc),
+
 					}
 
 					ClearUserList::<T>::mutate(|target_list| {
-						target_list.retain(|temp_acc| temp_acc != acc);
+						target_list.retain(|temp_acc| temp_acc.0 != *acc);
 					});
-
-					<UserHoldFileList<T>>::remove(&acc);
-					// todo! clear all
-					let _ = <Bucket<T>>::clear_prefix(&acc, 100000, None);
-					<UserBucketList<T>>::remove(&acc);
 				}
 			}
 			
@@ -435,19 +421,59 @@ pub mod pallet {
 			ensure!(user_brief.file_name.len() as u32 >= minimum, Error::<T>::SpecError);
 			ensure!(user_brief.bucket_name.len() as u32 >= minimum, Error::<T>::SpecError);
 
-			let needed_space = SEGMENT_SIZE
-				.checked_mul(15).ok_or(Error::<T>::Overflow)?
-				.checked_div(10).ok_or(Error::<T>::Overflow)?
-				.checked_mul(deal_info.len() as u128).ok_or(Error::<T>::Overflow)?;
-			ensure!(T::StorageHandle::get_user_avail_space(&user_brief.user)? > needed_space, Error::<T>::InsufficientAvailableSpace);
-
 			if <File<T>>::contains_key(&file_hash) {
-				Receptionist::<T>::fly_upload_file(file_hash, user_brief.clone(), needed_space)?;
+				Receptionist::<T>::fly_upload_file(file_hash, user_brief.clone())?;
 			} else {
+				let needed_space = FRAGMENT_SIZE
+					.checked_mul(FRAGMENT_COUNT.into()).ok_or(Error::<T>::Overflow)?
+					.checked_mul(deal_info.len() as u128).ok_or(Error::<T>::Overflow)?;
+            	ensure!(T::StorageHandle::get_user_avail_space(&user_brief.user, &user_brief.territory_name)? > needed_space, Error::<T>::InsufficientAvailableSpace);
 				Receptionist::<T>::generate_deal(file_hash, deal_info, user_brief.clone(), needed_space, file_size)?;
 			}
 
 			Self::deposit_event(Event::<T>::UploadDeclaration { operator: sender, owner: user_brief.user, deal_hash: file_hash });
+
+			Ok(())
+		}
+
+		#[pallet::call_index(2)]
+		#[transactional]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::calculate_report())]
+		pub fn territory_file_delivery(
+			origin: OriginFor<T>,
+			user: AccountOf<T>,
+			file_hash: Hash,
+			target_territory: TerrName,
+		) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+			ensure!(Self::check_permission(sender.clone(), user.clone()), Error::<T>::NoPermission);
+			ensure!(Self::check_is_file_owner(&user, &file_hash), Error::<T>::NotOwner);
+			let mut file_info = <File<T>>::try_get(&file_hash).map_err(|_| Error::<T>::NonExistent)?;
+			ensure!(file_info.stat == FileState::Active, Error::<T>::NotActive);
+			T::StorageHandle::check_territry_owner(&user, &target_territory)?;
+
+			for user_brief in file_info.owner.iter_mut() {
+				if user_brief.user == user {
+					let space = FRAGMENT_SIZE
+						.checked_mul(FRAGMENT_COUNT.into()).ok_or(Error::<T>::Overflow)?
+						.checked_mul(file_info.segment_list.len() as u128).ok_or(Error::<T>::Overflow)?;
+					T::StorageHandle::sub_territory_used_space(&user, &user_brief.territory_name, space)?;
+					T::StorageHandle::add_territory_used_space(&user, &target_territory, space)?;
+					user_brief.territory_name = target_territory.clone();
+				}
+			}
+
+			UserHoldFileList::<T>::mutate(&user, |slice_list| -> DispatchResult {
+				for slice_info in slice_list.iter_mut() {
+					if slice_info.file_hash == file_hash {
+						slice_info.territory_name = target_territory.clone();
+					}
+				}
+
+				Ok(())
+			})?;
+
+			Self::deposit_event(Event::<T>::TerritoryFileDelivery { file_hash: file_hash, new_territory: target_territory });
 
 			Ok(())
 		}
@@ -462,60 +488,60 @@ pub mod pallet {
 		/// - `origin`: The origin of the transaction, representing the current owner of the file.
 		/// - `target_brief`: User brief information of the target user to whom ownership is being transferred.
 		/// - `file_hash`: The unique hash identifier of the file to be transferred
-		#[pallet::call_index(2)]
-		#[transactional]
-		/// FIX ME
-		#[pallet::weight(Weight::zero())]
-		pub fn ownership_transfer(
-			origin: OriginFor<T>,
-			target_brief: UserBrief<T>,
-			file_hash: Hash,
-		) -> DispatchResult {
-			let sender = ensure_signed(origin)?;
-			let file = <File<T>>::try_get(&file_hash).map_err(|_| Error::<T>::FileNonExistent)?;
-			//If the file does not exist, false will also be returned
-			ensure!(Self::check_is_file_owner(&sender, &file_hash), Error::<T>::NotOwner);
-			ensure!(!Self::check_is_file_owner(&target_brief.user, &file_hash), Error::<T>::IsOwned);
+		// #[pallet::call_index(2)]
+		// #[transactional]
+		// /// FIX ME
+		// #[pallet::weight(<T as pallet::Config>::WeightInfo::ownership_transfer())]
+		// pub fn ownership_transfer(
+		// 	origin: OriginFor<T>,
+		// 	target_brief: UserBrief<T>,
+		// 	file_hash: Hash,
+		// ) -> DispatchResult {
+		// 	let sender = ensure_signed(origin)?;
+		// 	let file = <File<T>>::try_get(&file_hash).map_err(|_| Error::<T>::FileNonExistent)?;
+		// 	//If the file does not exist, false will also be returned
+		// 	ensure!(Self::check_is_file_owner(&sender, &file_hash), Error::<T>::NotOwner);
+		// 	ensure!(!Self::check_is_file_owner(&target_brief.user, &file_hash), Error::<T>::IsOwned);
 
-			ensure!(file.stat == FileState::Active, Error::<T>::Unprepared);
-			ensure!(<Bucket<T>>::contains_key(&target_brief.user, &target_brief.bucket_name), Error::<T>::NonExistent);
-			//Modify the space usage of target acc,
-			//and determine whether the space is enough to support transfer
-			let file_size = Self::cal_file_size(file.segment_list.len() as u128);
-			T::StorageHandle::update_user_space(&target_brief.user, 1, file_size)?;
-			//Increase the ownership of the file for target acc
-			<File<T>>::try_mutate(&file_hash, |file_opt| -> DispatchResult {
-				let file = file_opt.as_mut().ok_or(Error::<T>::FileNonExistent)?;
-				file.owner.try_push(target_brief.clone()).map_err(|_| Error::<T>::BoundedVecError)?;
-				Ok(())
-			})?;
-			//Add files to the bucket of target acc
-			<Bucket<T>>::try_mutate(
-				&target_brief.user,
-				&target_brief.bucket_name,
-				|bucket_info_opt| -> DispatchResult {
-					let bucket_info = bucket_info_opt.as_mut().ok_or(Error::<T>::NonExistent)?;
-					bucket_info.object_list.try_push(file_hash.clone()).map_err(|_| Error::<T>::LengthExceedsLimit)?;
-					Ok(())
-			})?;
-			//Increase the corresponding space usage for target acc
-			Self::add_user_hold_fileslice(
-				&target_brief.user,
-				file_hash.clone(),
-				file_size,
-			)?;
-			//Clean up the file holding information of the original user
-			let file = <File<T>>::try_get(&file_hash).map_err(|_| Error::<T>::NonExistent)?;
+		// 	ensure!(file.stat == FileState::Active, Error::<T>::Unprepared);
+		// 	ensure!(<Bucket<T>>::contains_key(&target_brief.user, &target_brief.bucket_name), Error::<T>::NonExistent);
+		// 	//Modify the space usage of target acc,
+		// 	//and determine whether the space is enough to support transfer
+		// 	let file_size = Self::cal_file_size(file.segment_list.len() as u128);
+		// 	T::StorageHandle::add_territory_used_space(&target_brief.user, &target_brief.territory_name, file_size)?;
+		// 	//Increase the ownership of the file for target acc
+		// 	<File<T>>::try_mutate(&file_hash, |file_opt| -> DispatchResult {
+		// 		let file = file_opt.as_mut().ok_or(Error::<T>::FileNonExistent)?;
+		// 		file.owner.try_push(target_brief.clone()).map_err(|_| Error::<T>::BoundedVecError)?;
+		// 		Ok(())
+		// 	})?;
+		// 	//Add files to the bucket of target acc
+		// 	<Bucket<T>>::try_mutate(
+		// 		&target_brief.user,
+		// 		&target_brief.bucket_name,
+		// 		|bucket_info_opt| -> DispatchResult {
+		// 			let bucket_info = bucket_info_opt.as_mut().ok_or(Error::<T>::NonExistent)?;
+		// 			bucket_info.object_list.try_push(file_hash.clone()).map_err(|_| Error::<T>::LengthExceedsLimit)?;
+		// 			Ok(())
+		// 	})?;
+		// 	//Increase the corresponding space usage for target acc
+		// 	Self::add_user_hold_fileslice(
+		// 		&target_brief.user,
+		// 		file_hash.clone(),
+		// 		file_size,
+		// 	)?;
+		// 	//Clean up the file holding information of the original user
+		// 	let file = <File<T>>::try_get(&file_hash).map_err(|_| Error::<T>::NonExistent)?;
 
-			let _ = Self::delete_user_file(&file_hash, &sender, &file)?;
+		// 	let _ = Self::delete_user_file(&file_hash, &sender, &file)?;
 
-			Self::bucket_remove_file(&file_hash, &sender, &file)?;
+		// 	Self::bucket_remove_file(&file_hash, &sender, &file)?;
 
-			Self::remove_user_hold_file_list(&file_hash, &sender)?;
-			// let _ = Self::clear_user_file(file_hash.clone(), &sender, true)?;
+		// 	Self::remove_user_hold_file_list(&file_hash, &sender)?;
+		// 	// let _ = Self::clear_user_file(file_hash.clone(), &sender, true)?;
 
-			Ok(())
-		}
+		// 	Ok(())
+		// }
 
 		/// Transfer Report for a Storage Deal
 		///
@@ -536,17 +562,20 @@ pub mod pallet {
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<DealMap<T>>::contains_key(&deal_hash), Error::<T>::NonExistent);
 			ensure!(index as u32 <= FRAGMENT_COUNT, Error::<T>::SpecError);
 			ensure!(index > 0, Error::<T>::SpecError);
 			let is_positive = T::MinerControl::is_positive(&sender)?;
 			ensure!(is_positive, Error::<T>::MinerStateError);
-			<DealMap<T>>::try_mutate(&deal_hash, |deal_info_opt| -> DispatchResult {
-				// can use unwrap because there was a judgment above
-				let deal_info = deal_info_opt.as_mut().unwrap();
-				Receptionist::<T>::qualification_report_processing(sender.clone(), deal_hash, deal_info, index)?;
-				Ok(())
-			})?;
+
+			let mut deal_info = <DealMap<T>>::try_get(&deal_hash).map_err(|_| Error::<T>::NonExistent)?;
+			let expired_flag = T::StorageHandle::check_expired(&deal_info.user.user, &deal_info.user.territory_name);
+			if expired_flag {
+				deal_info.force_unlock_space()?;
+				<DealMap<T>>::remove(deal_hash);
+				return Ok(());
+			}
+
+			Receptionist::<T>::qualification_report_processing(sender.clone(), deal_hash, &mut deal_info, index)?;
 
 			Self::deposit_event(Event::<T>::TransferReport{acc: sender, deal_hash: deal_hash});
 
@@ -555,48 +584,100 @@ pub mod pallet {
 
 		#[pallet::call_index(1)]
 		// FIX ME
-		#[pallet::weight(Weight::zero())]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::calculate_report())]
 		pub fn calculate_report(
 			origin: OriginFor<T>,
-			tee_sig: TeeRsaSignature,
+			tee_sig: BoundedVec<u8, ConstU32<64>>,
 			tag_sig_info: TagSigInfo<AccountOf<T>>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(
-				T::TeeWorkerHandler::can_tag(&tag_sig_info.tee_acc),
-				Error::<T>::TeeNoPermission
-			);
 			let idle_sig_info_encode = tag_sig_info.encode();
 			let original = sp_io::hashing::sha2_256(&idle_sig_info_encode);
-			let tee_puk = T::TeeWorkerHandler::get_tee_publickey()?;
 
-			ensure!(verify_rsa(&tee_puk, &original, &tee_sig), Error::<T>::VerifyTeeSigFailed);
-			ensure!(tag_sig_info.miner == sender, Error::<T>::VerifyTeeSigFailed);
+			let sig = 
+				sp_core::sr25519::Signature::try_from(tee_sig.as_slice()).or(Err(Error::<T>::MalformedSignature))?;
+
+			ensure!(
+				T::TeeWorkerHandler::verify_master_sig(&sig, original),
+				Error::<T>::VerifyTeeSigFailed
+			);
+			ensure!(tag_sig_info.miner == sender, Error::<T>::MinerError);
+
+			let mut tee_tag_counter: BTreeMap<WorkerPublicKey, u8> = Default::default();
+			let mut calculate_details: BTreeMap<Hash, Vec<WorkerPublicKey>> = Default::default();
+			for digest in tag_sig_info.digest {
+				ensure!(
+					T::TeeWorkerHandler::can_tag(&digest.tee_puk),
+					Error::<T>::TeeNoPermission
+				);
+				let res = calculate_details.get_mut(&digest.fragment);
+				match res {
+					Some(value) => value.push(digest.tee_puk),
+					None => {
+						let value: Vec<WorkerPublicKey> = vec![digest.tee_puk];
+						calculate_details.insert(digest.fragment, value);
+					},
+				};
+
+				let res = tee_tag_counter.get_mut(&digest.tee_puk);
+				match res {
+					Some(value) => *value = *value + 1,
+					None => { tee_tag_counter.insert(digest.tee_puk, 1); },
+				};
+			}
 
 			<File<T>>::try_mutate(&tag_sig_info.file_hash, |file_info_opt| -> DispatchResult {
 				let file_info = file_info_opt.as_mut().ok_or(Error::<T>::NonExistent)?;
 				let now = <frame_system::Pallet<T>>::block_number();
-				let mut count: u128 = 0;
+				let mut fcount: u128 = 0;
 				let mut hash_list: Vec<Box<[u8; 256]>> = Default::default();
+				let mut fragment_counter: BTreeMap<Hash, u8> = Default::default();
 				for segment in file_info.segment_list.iter_mut() {
 					for fragment in segment.fragment_list.iter_mut() {
 						if fragment.miner == sender {
+							
+							if fragment.tag.is_some() {
+								continue;
+							}
+
+							let res = fragment_counter.get_mut(&fragment.hash);
+							match res {
+								Some(value) => *value = *value + 1,
+								None => {
+									fragment_counter.insert(fragment.hash, 1);
+								},
+							};
+
 							fragment.tag = Some(now);
-							count = count + 1;
+							fcount = fcount + 1;
 							let hash_temp = fragment.hash.binary().map_err(|_| Error::<T>::BugInvalid)?;
 							hash_list.push(hash_temp);
 						}
 					}
 				}
 
-				let unlock_space = FRAGMENT_SIZE.checked_mul(count as u128).ok_or(Error::<T>::Overflow)?;
+				for (hash, count) in fragment_counter.iter() {
+					let res = calculate_details.get_mut(hash);
+					match res {
+						Some(value) => {
+							ensure!(value.len() == (*count as usize), Error::<T>::DigestError)
+						},
+						None => Err(Error::<T>::DigestError)?,
+					};
+				}
+
+				let unlock_space = FRAGMENT_SIZE.checked_mul(fcount as u128).ok_or(Error::<T>::Overflow)?;
 				T::MinerControl::unlock_space_to_service(&sender, unlock_space)?;
 				T::MinerControl::insert_service_bloom(&sender, hash_list)?;
 
-				if T::TeeWorkerHandler::is_bonded(&tag_sig_info.tee_acc) {
-					let bond_stash = T::TeeWorkerHandler::get_stash(&tag_sig_info.tee_acc)?;
-					T::CreditCounter::increase_point_for_tag(&bond_stash, unlock_space)?;
+				for (puk, count) in tee_tag_counter.iter() {
+					if T::TeeWorkerHandler::is_bonded(&puk) {
+						let bond_stash = T::TeeWorkerHandler::get_stash(&puk)?;
+						T::CreditCounter::increase_point_for_tag(&bond_stash, FRAGMENT_SIZE * (*count as u128))?;
+					}
+					let now = <frame_system::Pallet<T>>::block_number();
+					T::TeeWorkerHandler::update_work_block(now, &puk)?;
 				}
 
 				Self::deposit_event(Event::<T>::CalculateReport{ miner: sender, file_hash: tag_sig_info.file_hash});
@@ -623,37 +704,49 @@ pub mod pallet {
 		pub fn replace_idle_space(
 			origin: OriginFor<T>,
 			idle_sig_info: SpaceProofInfo<AccountOf<T>>,
-			tee_sig: TeeRsaSignature,
-			tee_acc: AccountOf<T>,
+			tee_sig_need_verify: BoundedVec<u8, ConstU32<64>>,
+			tee_sig: BoundedVec<u8, ConstU32<64>>,
+			tee_puk: WorkerPublicKey,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(
-				T::TeeWorkerHandler::can_cert(&tee_acc),
+				T::TeeWorkerHandler::can_cert(&tee_puk),
 				Error::<T>::TeeNoPermission
 			);
 			let idle_sig_info_encode = idle_sig_info.encode();
-			let tee_acc_encode = tee_acc.encode();
+			let tee_puk_encode = tee_puk.encode();
 			let mut original = Vec::new();
 			original.extend_from_slice(&idle_sig_info_encode);
-			original.extend_from_slice(&tee_acc_encode);
+			original.extend_from_slice(&tee_puk_encode);
 			let original = sp_io::hashing::sha2_256(&original);
-			let tee_puk = T::TeeWorkerHandler::get_tee_publickey()?;
 
-			ensure!(verify_rsa(&tee_puk, &original, &tee_sig), Error::<T>::VerifyTeeSigFailed);
+			let sig = 
+				sp_core::sr25519::Signature::try_from(tee_sig_need_verify.as_slice()).or(Err(Error::<T>::MalformedSignature))?;
+
+			ensure!(
+				T::TeeWorkerHandler::verify_master_sig(&sig, original),
+				Error::<T>::VerifyTeeSigFailed
+			);
+
+			let now = <frame_system::Pallet<T>>::block_number();
+			T::TeeWorkerHandler::update_work_block(now, &tee_puk)?;
+
+			let sig = 
+				sp_core::sr25519::Signature::try_from(tee_sig.as_slice()).or(Err(Error::<T>::MalformedSignature))?;
 
 			let count = T::MinerControl::delete_idle_update_accu(
 				&sender, 
 				idle_sig_info.accumulator,
 				idle_sig_info.front,
 				idle_sig_info.rear,
-				tee_sig,
+				sig,
 			)?;
 			let replace_space = IDLE_SEG_SIZE.checked_mul(count.into()).ok_or(Error::<T>::Overflow)?;
 			T::MinerControl::decrease_replace_space(&sender, replace_space)?;
 
-			if T::TeeWorkerHandler::is_bonded(&tee_acc) {
-				let bond_stash = T::TeeWorkerHandler::get_stash(&tee_acc)?;
+			if T::TeeWorkerHandler::is_bonded(&tee_puk) {
+				let bond_stash = T::TeeWorkerHandler::get_stash(&tee_puk)?;
 				T::CreditCounter::increase_point_for_replace(&bond_stash, replace_space)?;
 			}
 			
@@ -673,8 +766,7 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		#[transactional]
 		#[pallet::weight({
-			let v = Pallet::<T>::get_segment_length_from_file(&file_hash);
-			<T as pallet::Config>::WeightInfo::delete_file(v)
+			<T as pallet::Config>::WeightInfo::delete_file()
 		})]
 		pub fn delete_file(origin: OriginFor<T>, owner: AccountOf<T>, file_hash: Hash) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
@@ -685,7 +777,6 @@ pub mod pallet {
 			let _ = Self::delete_user_file(&file_hash, &owner, &file)?;
 			Self::bucket_remove_file(&file_hash, &owner, &file)?;
 			Self::remove_user_hold_file_list(&file_hash, &owner)?;
-			
 			Self::deposit_event(Event::<T>::DeleteFile{ operator: sender, owner, file_hash });
 
 			Ok(())
@@ -706,36 +797,47 @@ pub mod pallet {
 		pub fn cert_idle_space(
 			origin: OriginFor<T>,
 			idle_sig_info: SpaceProofInfo<AccountOf<T>>,
-			tee_sig: TeeRsaSignature,
-			tee_acc: AccountOf<T>,
+			tee_sig_need_verify: BoundedVec<u8, ConstU32<64>>,
+			tee_sig: BoundedVec<u8, ConstU32<64>>,
+			tee_puk: WorkerPublicKey,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			ensure!(
-				T::TeeWorkerHandler::can_cert(&tee_acc),
+				T::TeeWorkerHandler::can_cert(&tee_puk),
 				Error::<T>::TeeNoPermission
 			);
 			let idle_sig_info_encode = idle_sig_info.encode();
-			let tee_acc_encode = tee_acc.encode();
+			let tee_puk_encode = tee_puk.encode();
 			let mut original = Vec::new();
 			original.extend_from_slice(&idle_sig_info_encode);
-			original.extend_from_slice(&tee_acc_encode);
+			original.extend_from_slice(&tee_puk_encode);
 			let original = sp_io::hashing::sha2_256(&original);
 
-			let tee_puk = T::TeeWorkerHandler::get_tee_publickey()?;
+			let sig = 
+				sp_core::sr25519::Signature::try_from(tee_sig_need_verify.as_slice()).or(Err(Error::<T>::MalformedSignature))?;
 
-			ensure!(verify_rsa(&tee_puk, &original, &tee_sig), Error::<T>::VerifyTeeSigFailed);
+			ensure!(
+				T::TeeWorkerHandler::verify_master_sig(&sig, original),
+				Error::<T>::VerifyTeeSigFailed
+			);
+
+			let now = <frame_system::Pallet<T>>::block_number();
+			T::TeeWorkerHandler::update_work_block(now, &tee_puk)?;
+
+			let sig = 
+				sp_core::sr25519::Signature::try_from(tee_sig.as_slice()).or(Err(Error::<T>::MalformedSignature))?;
 
 			let idle_space = T::MinerControl::add_miner_idle_space(
 				&sender, 
 				idle_sig_info.accumulator, 
 				idle_sig_info.front,
 				idle_sig_info.rear,
-				tee_sig,
+				sig,
 			)?;
 
-			if T::TeeWorkerHandler::is_bonded(&tee_acc) {
-				let bond_stash = T::TeeWorkerHandler::get_stash(&tee_acc)?;
+			if T::TeeWorkerHandler::is_bonded(&tee_puk) {
+				let bond_stash = T::TeeWorkerHandler::get_stash(&tee_puk)?;
 				T::CreditCounter::increase_point_for_cert(&bond_stash, idle_space)?;
 			}
 
@@ -1023,6 +1125,9 @@ pub mod pallet {
 					for segment in &mut file.segment_list {
 						for fragment in &mut segment.fragment_list {
 							if &fragment.hash == &fragment_hash {
+								if &fragment.miner ==  &sender {
+									Err(Error::<T>::RulesNotAllowed)?
+								}
 								if &fragment.miner == &order.origin_miner {
 									let binary = fragment.hash.binary().map_err(|_| Error::<T>::BugInvalid)?;
 									T::MinerControl::insert_service_bloom(&sender, vec![binary.clone()])?;
@@ -1043,6 +1148,8 @@ pub mod pallet {
 										}
 									}
 
+
+									fragment.tag = Some(now);
 									fragment.avail = true;
 									fragment.miner = sender.clone();
 									return Ok(());
@@ -1061,50 +1168,21 @@ pub mod pallet {
 		
 			Ok(())
 		}
-		// FOR TEST
-		#[pallet::call_index(20)]
+
+		// FOR TESTING
+		#[pallet::call_index(22)]
 		#[transactional]
 		#[pallet::weight(Weight::zero())]
-		pub fn root_clear_failed_count(origin: OriginFor<T>) -> DispatchResult {
+		pub fn root_clear_file(origin: OriginFor<T>, owner: AccountOf<T>, file_hash: Hash) -> DispatchResult {
 			let _ = ensure_root(origin)?;
 
-			for (miner, _) in <TaskFailedCount<T>>::iter() {
-				<TaskFailedCount<T>>::remove(&miner);
-			}
+			let file = <File<T>>::try_get(&file_hash).map_err(|_| Error::<T>::NonExistent)?;
+			let _ = Self::delete_user_file(&file_hash, &owner, &file)?;
+			Self::bucket_remove_file(&file_hash, &owner, &file)?;
+			Self::remove_user_hold_file_list(&file_hash, &owner)?;
 
 			Ok(())
 		}
-
-		#[pallet::call_index(21)]
-		#[transactional]
-		#[pallet::weight(Weight::zero())]
-		pub fn miner_clear_failed_count(origin: OriginFor<T>) -> DispatchResult {
-			let sender = ensure_signed(origin)?;
-
-			<TaskFailedCount<T>>::remove(&sender);
-
-			Ok(())
-		}
-	}
-}
-
-pub trait RandomFileList<AccountId> {
-	//Get random challenge data
-	fn get_random_challenge_data(
-	) -> Result<Vec<(AccountId, Hash, [u8; 68], Vec<u32>, u64, DataType)>, DispatchError>;
-	//Delete file backup
-	fn clear_file(_file_hash: Hash) -> Result<Weight, DispatchError>;
-}
-
-impl<T: Config> RandomFileList<<T as frame_system::Config>::AccountId> for Pallet<T> {
-	fn get_random_challenge_data(
-	) -> Result<Vec<(AccountOf<T>, Hash, [u8; 68], Vec<u32>, u64, DataType)>, DispatchError> {
-		Ok(Default::default())
-	}
-
-	fn clear_file(_file_hash: Hash) -> Result<Weight, DispatchError> {
-		let weight: Weight = Weight::zero();
-		Ok(weight)
 	}
 }
 

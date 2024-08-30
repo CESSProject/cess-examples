@@ -1,7 +1,7 @@
 [package]
 name = "pallet-audit"
 authors = ["CESS LAB"]
-version = "0.7.0"
+version = "0.7.6"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/CESSProject/cess"
@@ -19,28 +19,22 @@ pallet-cess-staking = { workspace = true }
 pallet-preimage = { workspace = true }
 
 # local pallet
+ces-types = { workspace = true, features = ["enable_serde"] }
 cp-bloom-filter = { workspace = true }
 cp-scheduler-credit = { workspace = true }
 cp-cess-common = { workspace = true }
 cp-enclave-verify = { workspace = true }
 pallet-cess-treasury = { workspace = true }
 
+# polkadot 
 frame-benchmarking = { workspace = true, optional = true }
-
 frame-support = { workspace = true }
-
 frame-system = { workspace = true }
-
 sp-io = { workspace = true }
-
 sp-std = { workspace = true }
-
 pallet-balances = { workspace = true }
-
 sp-core = { workspace = true }
-
 pallet-timestamp = { workspace = true }
-
 sp-runtime = { workspace = true }
 
 # local dependencies
@@ -86,5 +80,5 @@ std = [
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
-	"pallet-cess-staking/runtime-benchmarks",
 ]
+try-runtime = []

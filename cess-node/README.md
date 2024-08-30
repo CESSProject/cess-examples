@@ -1,8 +1,4 @@
-# Notes
-
-The source is copied from the code snapshot of [**CESSProject/cess** commit:62444aa](https://github.com/CESSProject/cess/commit/62444aadecfc08878d1c3629687b27389054a604).
-
-# ![CESS](https://raw.githubusercontent.com/Cumulus2021/W3F-illustration/main/banner5.png)
+# ![CESS](https://github.com/CESSProject/doc-v2/blob/main/assets/introduction/banner.jpg)
 
 [![Substrate version](https://img.shields.io/badge/Substrate-3.0.0-blue?logo=Parity%20Substrate)](https://substrate.dev/) [![GitHub license](https://img.shields.io/badge/license-GPL3%2FApache2-blue)](#LICENSE)
 [![build-and-test](https://github.com/CESSProject/cess/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/CESSProject/cess/actions/workflows/build-and-test.yml)
@@ -10,7 +6,7 @@ The source is copied from the code snapshot of [**CESSProject/cess** commit:6244
 
 <a href='https://web3.foundation/'><img width='205' alt='web3f_grants_badge.png' src='https://github.com/heyworld88/gitskills/blob/main/web3f_grants_badge.png'></a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href='https://builders.parity.io/'><img width='240' src='https://github.com/CESSProject/cess/assets/15166250/76b74c48-a411-4ffa-b37c-d2bc27e526bf'></a>
   
-**[cess.cloud](http://cess.cloud/) is to provide the capabilities of a new global decentralized cloud data storage network by building with the infrastructure of decentralized cloud data network of the [substrate](https://substrate.dev/) while maintaining the data security and reliability guarantees inherent to blockchain technology. Learn more at [white-paper](https://github.com/CESSProject/Whitepaper).** 
+**[CESS](http://cess.network/) is to provide the capabilities of a new global decentralized cloud data storage network by building with the infrastructure of decentralized cloud data network of the [substrate](https://substrate.dev/) while maintaining the data security and reliability guarantees inherent to blockchain technology. Learn more at [white-paper](https://github.com/CESSProject/Whitepaper).** 
 
 ## Getting Started
 
